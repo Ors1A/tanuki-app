@@ -1,0 +1,460 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E2B2F">
+<title>Cardápio de Verão - Tanuki Ramen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FAF5EA;--ink:#1E2B2F;--muted:#55625F;--accent:#B84E14;--accent-bg:#FCEBDD;--sand:#F1E8D5;--card:#FFFDF7;--line:#EADFC8;--line2:#CFC3A8;--peach:#F4C095;--err:#A12B1B;--ok:#2F7A4F}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Nunito Sans',Arial,sans-serif;font-size:17px;line-height:1.4;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+h1,h2,h3{font-family:'Fredoka',Arial,sans-serif;margin:0;line-height:1.1}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px}
+.hero img{display:block;width:100%;height:auto}
+.intro{background:var(--ink);color:var(--bg);padding:18px 16px 22px}
+.intro h1{font-size:32px;font-weight:600}
+.intro p{margin:8px 0 0;color:#C9D3CF;font-size:15px}
+.intro b{color:var(--peach)}
+.topo{display:flex;justify-content:space-between;align-items:center;margin:20px 0 4px;gap:8px}
+.topo h2{font-size:30px;font-weight:600}
+.link{font:inherit;font-weight:700;font-size:15px;background:none;border:0;padding:8px 2px;cursor:pointer;color:var(--muted)}
+.link.rem{color:var(--err)}
+.sub{color:var(--muted);font-size:15px;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin-top:12px}
+label.campo{display:block;font-weight:700;font-size:15px;margin:0 0 6px}
+input[type=text],input[type=tel],textarea{width:100%;font:inherit;color:var(--ink);background:#fff;border:1.5px solid var(--line2);border-radius:14px;padding:14px;outline:none}
+input:focus,textarea:focus{border-color:var(--accent)}
+.campo-grupo{margin-bottom:14px}
+.campo-grupo:last-child{margin-bottom:0}
+.erro-campo{color:var(--err);font-size:14px;font-weight:600;margin-top:5px;display:none}
+.tem-erro .erro-campo{display:block}
+.tem-erro input{border-color:var(--err)}
+.opcoes{display:flex;flex-wrap:wrap;gap:8px}
+.chip{flex:1 1 auto;min-width:100px;display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--line2);background:var(--card);border-radius:14px;font-weight:600;font-size:16px;cursor:pointer;user-select:none;text-align:left;font-family:inherit;color:var(--ink)}
+.chip .dot{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid #8A9490;background:#fff}
+.chip.check .dot{border-radius:6px}
+.chip[aria-pressed=true]{border-color:var(--accent);background:var(--accent-bg)}
+.chip[aria-pressed=true] .dot{border-color:var(--accent);background:var(--accent)}
+.chip small{display:block;font-weight:600;color:var(--muted);font-size:13px}
+.chip .t{flex:1}
+.sec{font-weight:700;font-size:15px;margin:16px 0 8px}
+.sec:first-child{margin-top:0}
+.sec small{font-weight:600;color:var(--muted)}
+.nota{font-size:14px;color:var(--muted);margin:8px 0 0}
+.passo{display:flex;align-items:center;gap:14px}
+.passo button{width:48px;height:48px;border-radius:50%;border:2px solid var(--accent);background:#fff;color:var(--accent);font-size:28px;font-weight:700;line-height:1;cursor:pointer;font-family:inherit}
+.passo button[disabled]{opacity:.35}
+.passo output{min-width:34px;text-align:center;font-family:'Fredoka',Arial,sans-serif;font-size:30px;font-weight:600}
+.acoes{display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.acoes .tit{font-weight:700;font-size:15px;color:var(--muted)}
+.btn{font:inherit;font-weight:700;font-size:18px;border-radius:14px;padding:15px 18px;cursor:pointer;text-align:center;text-decoration:none;display:block;width:100%}
+.btn.prim{color:#fff;background:var(--accent);border:2px solid var(--accent)}
+.btn.sec2{color:var(--accent);background:transparent;border:2px solid var(--accent)}
+.btn.escuro{color:var(--ink);background:var(--peach);border:2px solid var(--peach)}
+.btn[disabled]{opacity:.55}
+.dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.avisos{background:var(--sand);border-radius:16px;padding:16px;font-size:15px;margin-top:12px}
+.avisos ul{margin:8px 0 0;padding-left:20px}
+.ciente{display:flex;gap:12px;align-items:flex-start;margin-top:14px;font-weight:700;cursor:pointer}
+.ciente input{width:24px;height:24px;accent-color:var(--accent);flex:none;margin-top:1px}
+.msg{border-radius:20px;padding:22px;margin-top:22px}
+.msg h2{font-size:30px;font-weight:600;margin-bottom:8px}
+.msg.ok{background:var(--card);border:2px solid var(--ok)}
+.msg.aviso{background:var(--sand);border:1px solid var(--line2)}
+.msg.falha{background:#FBE9E5;border:2px solid var(--err)}
+.resumo{margin:12px 0 0;padding:0;list-style:none;font-size:16px}
+.resumo li{padding:7px 0;border-bottom:1px solid var(--line)}
+.resumo li:last-child{border-bottom:0}
+.num{font-family:'Fredoka',Arial,sans-serif;font-size:20px;color:var(--ok);font-weight:600;margin-bottom:6px}
+.valor{font-family:'Fredoka',Arial,sans-serif;font-size:40px;color:var(--accent);font-weight:600;margin:10px 0 0}
+.pix{background:var(--sand);border-radius:16px;padding:16px;margin-top:16px}
+.pix textarea{font-size:13px;word-break:break-all;background:#fff}
+.carregando{padding:40px 0;text-align:center;color:var(--muted)}
+.passos{display:flex;gap:6px;margin-top:16px}
+.passos i{flex:1;height:5px;border-radius:3px;background:var(--line2)}
+.passos i.on{background:var(--accent)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="hero"><img src="banner.jpg" alt="Tanuki Ramen - Verão no Havaí" width="1200" height="300"></div>
+  <div class="intro"><div class="wrap" style="padding:0">
+    <h1>Cardápio de Verão</h1>
+    <p>Onigiri e Poke do Tanuki Ramen.<br>📍 Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda).</p>
+  </div></div>
+</header>
+<main class="wrap"><div id="carregando" class="carregando">Carregando…</div><div id="tela" hidden></div></main>
+
+<script>
+/* ========= CONFIGURAÇÃO (única parte para editar) ========= */
+var CFG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbz9YNL4BivUIfixz-pNwlS4hacq6S-ChVfRZgQoF30-yaLTsLQbmUimbA44Rx6TZ2RNTQ/exec',
+  FORMS_URL: 'https://docs.google.com/forms/d/e/1FAIpQLSdhe-UDoFvFDKVo3W6qhrBZdojULVRSAbPEYKPa4W9TVk6k5w/viewform',
+  FORMS_ORIGEM_ENTRY: 'entry.1429552709',
+  // Pix copia e cola. Enquanto "chave" estiver vazia, a tela de confirmação mostra só
+  // "Entraremos em contato para o pagamento". titular = nome como aparece no app do banco.
+  PIX: { chave: '56064358000132', titular: 'Arthur Orsi Consultoria', cidade: 'SAO MIGUEL DO OESTE' },
+  WHATSAPP: '5549998120435',   // número que recebe o comprovante, só dígitos com 55 + DDD, ex.: 5549999999999
+  ABRE: new Date('2026-10-05T18:30:00-03:00'),   // segunda, 18h30
+  FECHA: new Date('2026-10-10T05:00:00-03:00'),  // sábado, 5h
+  PRECO_POKE: 55, PRECO_ONIGIRI: 13, MAX_POKES: 5, MAX_ONI_PAGINAS: 3, MAX_ONIGIRI: 10,
+  SABORES: [
+    {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu'},
+    {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha'},
+    {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com edamame'}
+  ],
+  ADICIONAIS: [
+    {k:'edamame', nome:'Edamame', por:'35 g', p:6},
+    {k:'manga', nome:'Manga', por:'35 g', p:3},
+    {k:'cenoura', nome:'Cenoura', por:'30 g', p:3},
+    {k:'kani', nome:'Kani', por:'40 g', p:6},
+    {k:'palmito', nome:'Palmito pupunha', por:'40 g', p:5},
+    {k:'castanha', nome:'Castanha de caju', por:'15 g', p:4},
+    {k:'creamcheese', nome:'Cream cheese', por:'25 g', p:4},
+    {k:'gari', nome:'Gari extra', por:'12 g', p:2.5},
+    {k:'nori', nome:'Nori', por:'¼ de folha', p:2},
+    {k:'avocado', nome:'Avocado', por:'45 g', p:5},
+    {k:'tofu', nome:'Tofu marinado', por:'80 g', p:9},
+    {k:'shimeji', nome:'Shimeji', por:'40 g', p:7},
+    {k:'ajitama', nome:'Ajitama (ovo marinado)', por:'1 un', p:4},
+    {k:'arroz', nome:'Arroz extra', por:'100 g', p:4},
+    {k:'proteina', nome:'Proteína em dobro', por:'120 g', p:20}
+  ],
+  ONIGIRIS: [
+    {k:'salmao', nome:'Salmão', desc:'Salmão cru, cream cheese e cebolinha'},
+    {k:'tuna', nome:'Tuna Mayo', desc:'Atum com maionese japonesa'},
+    {k:'shimeji', nome:'Shimeji (vegetariano)', desc:'Contém castanha de caju e leite'}
+  ]
+};
+/* =========================================================== */
+
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var origem = (new URLSearchParams(location.search).get('origem') || 'pagina').replace(/[^A-Za-z0-9_-]/g,'').slice(0,30) || 'pagina';
+  var formsLink = CFG.FORMS_URL + '?usp=pp_url&' + CFG.FORMS_ORIGEM_ENTRY + '=' + encodeURIComponent(origem);
+
+  var dados = {nome:'', tel:'', obs:'', ciente:false};
+  var units = [];          // {t:'poke', sabor, vin, ad:{}} | {t:'oni', sabor, qtd}
+  var tela = 'dados';      // 'dados' | número (índice em units) | 'final'
+  var enviando = false;
+  var idPedido = null;
+  try { idPedido = sessionStorage.getItem('tanuki_id_pedido'); } catch(e){}
+  if (!idPedido) {
+    idPedido = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('p' + Date.now() + Math.random().toString(36).slice(2));
+    try { sessionStorage.setItem('tanuki_id_pedido', idPedido); } catch(e){}
+  }
+
+  function brl(n){ return 'R$ ' + n.toFixed(2).replace('.', ','); }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function nomeSabor(lista, k){ var r = lista.filter(function(x){ return x.k === k; })[0]; return r ? r.nome : ''; }
+  function contar(t){ return units.filter(function(u){ return u.t === t; }).length; }
+  function numero(i){ var t = units[i].t, n = 0; for (var j = 0; j <= i; j++) if (units[j].t === t) n++; return n; }
+  function titulo(i){ return (units[i].t === 'poke' ? 'Poke ' : 'Onigiri ') + numero(i); }
+  function linkForms(txt){ return '<a class="btn prim" style="margin-top:14px" href="' + esc(formsLink) + '">' + txt + '</a>'; }
+  function ir(t){ tela = t; render(); window.scrollTo({top: document.querySelector('.intro').offsetTop, behavior: 'smooth'}); }
+
+  /* ---------- estado geral ---------- */
+  function mostrarEstado(html, cls){
+    $('carregando').hidden = true;
+    var e = $('tela'); e.hidden = false;
+    e.innerHTML = '<div class="msg ' + (cls || 'aviso') + '">' + html + '</div>';
+  }
+  function fmtDia(d){ return d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'}); }
+  function fmtHora(d){ return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}).replace(':','h'); }
+
+  function carregar(){
+    var agora = new Date();
+    // ?forcar=1 só pula o relógio da página (para testes); quem manda é o serviço, que recusa se o formulário estiver fechado.
+    var forcar = new URLSearchParams(location.search).get('forcar') === '1';
+    if (forcar) agora = new Date(CFG.ABRE.getTime() + 60000);
+    if (agora >= CFG.FECHA) { mostrarEstado('<h2>Pedidos encerrados</h2><p>Os pedidos desta retirada já foram encerrados. Fique de olho no nosso Instagram para a próxima!</p>'); return; }
+    if (agora < CFG.ABRE) { mostrarEstado('<h2>Pedidos abrem em breve</h2><p>Os pedidos abrem <b>' + fmtDia(CFG.ABRE) + ', às ' + fmtHora(CFG.ABRE) + '</b>. Volte aqui nesse horário!</p>'); return; }
+    var ctl = new AbortController(); var t = setTimeout(function(){ ctl.abort(); }, 10000);
+    fetch(CFG.API_URL + '?acao=estado', {signal: ctl.signal}).then(function(r){ return r.json(); }).then(function(j){
+      clearTimeout(t);
+      if (!j || j.ok !== true) throw new Error('estado');
+      if (!j.aberto) { mostrarEstado('<h2>Pedidos fechados no momento</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
+      $('carregando').hidden = true; $('tela').hidden = false; render();
+    }).catch(function(){
+      clearTimeout(t);
+      mostrarEstado('<h2>Faça seu pedido pelo formulário</h2><p>Nossa página de pedidos não respondeu. Você pode fazer o pedido pelo formulário do Google, que funciona igual:</p>' + linkForms('Abrir o formulário de pedidos') + '<button class="btn sec2" style="margin-top:10px" onclick="location.reload()">Tentar de novo aqui</button>', 'falha');
+    });
+  }
+
+  /* ---------- telas ---------- */
+  function render(){
+    var el = $('tela');
+    if (tela === 'dados') el.innerHTML = htmlDados();
+    else if (tela === 'final') el.innerHTML = htmlFinal();
+    else el.innerHTML = htmlUnidade(tela);
+  }
+
+  function barra(passoAtual){
+    var n = units.length + 2, h = '<div class="passos">';
+    for (var i = 0; i < n; i++) h += '<i class="' + (i <= passoAtual ? 'on' : '') + '"></i>';
+    return h + '</div>';
+  }
+
+  function htmlDados(){
+    var h = '<div class="topo"><h2>Seus dados</h2></div>';
+    h += '<div class="card"><div class="campo-grupo" id="g-nome"><label class="campo" for="nome">Nome completo</label><input id="nome" type="text" autocomplete="name" maxlength="80" value="' + esc(dados.nome) + '"><div class="erro-campo">Informe o nome completo.</div></div>';
+    h += '<div class="campo-grupo" id="g-tel"><label class="campo" for="tel">Telefone (WhatsApp)</label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(49) 99999-9999" maxlength="20" value="' + esc(dados.tel) + '"><div class="erro-campo">Telefone inválido. Use DDD + número.</div></div></div>';
+    h += '<div class="acoes"><div class="tit">' + (units.length ? 'Seu pedido tem ' + units.length + (units.length === 1 ? ' item. Continue ou adicione:' : ' itens. Continue ou adicione:') : 'O que você quer pedir?') + '</div>';
+    if (units.length) h += '<button class="btn escuro" data-a="continuar">Continuar pedido</button>';
+    h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div></div>';
+    return h;
+  }
+
+  function htmlUnidade(i){
+    var u = units[i], h = '';
+    h += '<div class="topo"><h2>' + titulo(i) + '</h2><button class="link rem" data-a="remover">Remover</button></div>';
+    h += '<button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
+    if (u.t === 'poke') {
+      h += '<p class="sub">Poke R$ ' + CFG.PRECO_POKE + ',00 · molhos e vinagrete vão em pote separado.</p><div class="card">';
+      h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
+      CFG.SABORES.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + '</small></span></button>'; });
+      h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
+      h += '<div class="sec">Vinagrete de cebola roxa <small>(pote separado, sem custo)</small></div><div class="opcoes">';
+      [[true,'Com vinagrete'],[false,'Sem vinagrete']].forEach(function(o){ h += '<button class="chip" aria-pressed="' + (u.vin === o[0]) + '" data-a="vin" data-k="' + o[0] + '"><span class="dot"></span><span class="t">' + o[1] + '</span></button>'; });
+      h += '</div><div class="erro-campo" id="e-vin">Escolha uma opção.</div>';
+      h += '<div class="sec">Adicionais <small>(opcional)</small></div><div class="opcoes">';
+      CFG.ADICIONAIS.forEach(function(a){ h += '<button class="chip check" aria-pressed="' + (!!u.ad[a.k]) + '" data-a="ad" data-k="' + a.k + '"><span class="dot"></span><span class="t">' + a.nome + '<small>' + a.por + ' · +' + brl(a.p) + '</small></span></button>'; });
+      h += '</div><p class="nota">Kani e ajitama não são vegetarianos.</p></div>';
+    } else {
+      h += '<p class="sub">Onigiri R$ ' + CFG.PRECO_ONIGIRI + ',00 cada · 120 g · a folha de nori vem separada na embalagem.</p><div class="card">';
+      h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
+      CFG.ONIGIRIS.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + '</small></span></button>'; });
+      h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
+      h += '<div class="sec">Quantidade</div><div class="passo"><button data-a="qtd" data-d="-1"' + (u.qtd <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><output>' + u.qtd + '</output><button data-a="qtd" data-d="1"' + (u.qtd >= CFG.MAX_ONIGIRI ? ' disabled' : '') + ' aria-label="Mais">+</button></div></div>';
+    }
+    // próximos passos
+    var np = contar('poke'), no = contar('oni');
+    h += '<div class="acoes"><div class="tit">Quer pedir mais alguma coisa?</div>';
+    var bots = '';
+    if (np < CFG.MAX_POKES) bots += '<button class="btn sec2" data-a="novo" data-t="poke">' + (np ? 'Poke ' + (np + 1) : 'Poke') + '</button>';
+    if (no < CFG.MAX_ONI_PAGINAS) bots += '<button class="btn sec2" data-a="novo" data-t="oni">' + (no ? 'Onigiri ' + (no + 1) : 'Onigiri') + '</button>';
+    if (bots) h += '<div class="dupla">' + bots + '</div>';
+    h += '<button class="btn prim" data-a="enviar">Enviar pedido</button></div>';
+    return h + barra(i + 1);
+  }
+
+  function resumoItens(){
+    var l = '';
+    units.forEach(function(u, i){
+      if (u.t === 'poke') {
+        var ads = CFG.ADICIONAIS.filter(function(a){ return u.ad[a.k]; }).map(function(a){ return a.nome; });
+        l += '<li><b>' + titulo(i) + '</b> · ' + nomeSabor(CFG.SABORES, u.sabor) + (u.vin ? ' · com vinagrete' : ' · sem vinagrete') + (ads.length ? ' · ' + esc(ads.join(', ')) : '') + '</li>';
+      } else {
+        l += '<li><b>' + u.qtd + '× Onigiri</b> ' + nomeSabor(CFG.ONIGIRIS, u.sabor) + '</li>';
+      }
+    });
+    return l;
+  }
+
+  // Total do pedido, só para mostrar na tela "Quase lá". Quem vale é o total do serviço (validar_).
+  function totalPedido(){
+    var t = 0;
+    units.forEach(function(u){
+      if (u.t === 'poke') {
+        t += CFG.PRECO_POKE;
+        CFG.ADICIONAIS.forEach(function(a){ if (u.ad[a.k]) t += a.p; });
+      } else {
+        t += u.qtd * CFG.PRECO_ONIGIRI;
+      }
+    });
+    return t;
+  }
+
+  function htmlFinal(){
+    var h = '<div class="topo"><h2>Quase lá</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
+    h += '<div class="card"><div class="sec">Seu pedido</div><ul class="resumo">' + resumoItens() + '</ul><div class="valor">' + brl(totalPedido()) + '</div></div>';
+    h += '<div class="card"><label class="campo" for="obs">Observações <small style="font-weight:600;color:var(--muted)">(opcional)</small></label><textarea id="obs" rows="3" maxlength="300">' + esc(dados.obs) + '</textarea></div>';
+    h += '<div class="avisos"><b>Avisos importantes</b><ul><li>Salmão cru (poke e onigiri de salmão): consumir no dia da retirada.</li><li>Onigiri de shimeji: contém castanha de caju e leite.</li><li>Kani e ajitama não são vegetarianos.</li><li>Leve o pedido direto para a geladeira depois da retirada.</li></ul>';
+    h += '<label class="ciente" id="g-ciente"><input type="checkbox" id="ciente"' + (dados.ciente ? ' checked' : '') + '><span>Li e estou ciente dos avisos acima</span></label><div class="erro-campo" id="e-ciente">Confirme que leu os avisos.</div></div>';
+    h += '<div class="acoes"><button class="btn prim" data-a="confirmar" id="btnConfirmar">Enviar pedido · ' + brl(totalPedido()) + '</button></div>';
+    return h + barra(units.length + 1);
+  }
+
+  /* ---------- validação ---------- */
+  function foneOk(v){ var d = v.replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,''); return /^\d{10,11}$/.test(d); }
+  function lerDados(){
+    if ($('nome')) dados.nome = $('nome').value;
+    if ($('tel')) dados.tel = $('tel').value;
+    if ($('obs')) dados.obs = $('obs').value;
+    if ($('ciente')) dados.ciente = $('ciente').checked;
+  }
+  function dadosOk(){
+    var n = dados.nome.trim().length >= 3, t = foneOk(dados.tel);
+    return {nome: n, tel: t, ok: n && t};
+  }
+  function unidadeOk(u){
+    if (!u.sabor) return false;
+    if (u.t === 'poke' && u.vin !== true && u.vin !== false) return false;
+    return true;
+  }
+  function mostrarErrosUnidade(u){
+    var s = $('e-sabor'), v = $('e-vin');
+    if (s) s.style.display = u.sabor ? 'none' : 'block';
+    if (v) v.style.display = (u.t === 'poke' && u.vin === null) ? 'block' : 'none';
+    var alvo = !u.sabor ? $('s-sabor') : (u.t === 'poke' && u.vin === null ? v : null);
+    if (alvo) alvo.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  function primeiraInvalida(){
+    for (var i = 0; i < units.length; i++) if (!unidadeOk(units[i])) return i;
+    return -1;
+  }
+  function totaisOni(){
+    var t = {}; CFG.ONIGIRIS.forEach(function(o){ t[o.k] = 0; });
+    units.forEach(function(u){ if (u.t === 'oni' && u.sabor) t[u.sabor] += u.qtd; });
+    return t;
+  }
+
+  /* ---------- ações ---------- */
+  function novaUnidade(t){
+    units.push(t === 'poke' ? {t:'poke', sabor:null, vin:null, ad:{}} : {t:'oni', sabor:null, qtd:1});
+    ir(units.length - 1);
+  }
+  function falhaEnvio(){
+    enviando = false;
+    $('tela').innerHTML = '<div class="msg falha"><h2>Não conseguimos enviar por aqui</h2><p>Seu pedido <b>ainda não foi registrado</b>. Faça o pedido pelo formulário do Google, que funciona igual:</p>' + linkForms('Fazer pedido pelo formulário') + '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar e tentar de novo</button></div>';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+  /* ---------- Pix copia e cola (BR Code estático) ---------- */
+  function crc16(s){
+    var c = 0xFFFF;
+    for (var i = 0; i < s.length; i++) {
+      c ^= s.charCodeAt(i) << 8;
+      for (var j = 0; j < 8; j++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF;
+    }
+    return ('000' + c.toString(16).toUpperCase()).slice(-4);
+  }
+  function campoPix(id, v){ v = String(v); return id + ('0' + v.length).slice(-2) + v; }
+  function semAcento(s){ return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase().trim(); }
+  function pixPayload(valor, txid){
+    var conta = campoPix('00', 'br.gov.bcb.pix') + campoPix('01', CFG.PIX.chave.trim());
+    var p = campoPix('00', '01') + campoPix('01', '11') + campoPix('26', conta) + campoPix('52', '0000') + campoPix('53', '986') +
+      campoPix('54', valor.toFixed(2)) + campoPix('58', 'BR') +
+      campoPix('59', semAcento(CFG.PIX.titular).slice(0, 25)) + campoPix('60', semAcento(CFG.PIX.cidade).slice(0, 15)) +
+      campoPix('62', campoPix('05', String(txid).replace(/[^A-Za-z0-9]/g, '').slice(0, 25) || '***'));
+    p += '6304';
+    return p + crc16(p);
+  }
+  function htmlPagamento(res, total){
+    if (!CFG.PIX.chave || !CFG.PIX.titular) return '<p>Entraremos em contato para o pagamento.</p>';
+    var codigo = pixPayload(total, 'TNK' + res.pedido);
+    var h = '<div class="pix"><div class="sec">Pague com Pix</div><p class="nota" style="margin:0 0 8px">Copie o código abaixo e cole na opção "Pix copia e cola" do app do seu banco. O valor já vai preenchido. O Pix aparece em nome de <b>Arthur Orsi Consultoria Ltda</b>, a empresa do Tanuki Ramen.</p>';
+    h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(codigo) + '</textarea>';
+    h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
+    if (CFG.WHATSAPP) {
+      var txt = 'Olá! Segue o comprovante do pedido nº ' + res.pedido + ' (' + dados.nome.trim() + '), valor ' + brl(total) + '.';
+      h += '<a class="btn sec2" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/' + CFG.WHATSAPP + '?text=' + encodeURIComponent(txt) + '">Enviar comprovante no WhatsApp</a>';
+    }
+    return h + '<p class="nota">Depois de pagar, envie o comprovante no nosso WhatsApp para confirmarmos o pagamento.</p></div>';
+  }
+  function copiarPix(b){
+    var t = $('pixcod'); if (!t) return;
+    t.select(); t.setSelectionRange(0, 99999);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e){}
+    if (!ok && navigator.clipboard) { navigator.clipboard.writeText(t.value).then(function(){ b.textContent = 'Código copiado ✓'; }); return; }
+    b.textContent = ok ? 'Código copiado ✓' : 'Selecione o código e copie';
+  }
+
+  function sucesso(res){
+    try { sessionStorage.removeItem('tanuki_id_pedido'); } catch(e){}
+    enviando = false;
+    var total = Number(res.total);
+    if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
+    $('tela').innerHTML = '<div class="msg ok"><div class="num">Pedido nº ' + esc(res.pedido) + '</div><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+  function enviarPedido(){
+    if (enviando) return;
+    var tot = totaisOni();
+    for (var k in tot) if (tot[k] > CFG.MAX_ONIGIRI) { alert('No máximo ' + CFG.MAX_ONIGIRI + ' onigiris de cada sabor. Ajuste a quantidade.'); return; }
+    enviando = true;
+    var b = $('btnConfirmar'); if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
+    var corpo = {
+      id: idPedido, nome: dados.nome, telefone: dados.tel, obs: dados.obs, origem: origem, ciente: true,
+      pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: Object.keys(u.ad)}; }),
+      onigiris: tot
+    };
+    var ctl = new AbortController(); var t = setTimeout(function(){ ctl.abort(); }, 30000);
+    fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(corpo), signal: ctl.signal})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        clearTimeout(t);
+        if (j && j.ok === true) { sucesso(j); return; }
+        if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
+        if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
+        falhaEnvio();
+      })
+      .catch(function(){ clearTimeout(t); falhaEnvio(); });
+  }
+
+  document.addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-a]'); if (!b || b.disabled || enviando) return;
+    var a = b.getAttribute('data-a');
+    lerDados();
+    var u = (typeof tela === 'number') ? units[tela] : null;
+
+    if (a === 'novo') {
+      if (tela === 'dados') {
+        var d = dadosOk(); document.getElementById('g-nome').classList.toggle('tem-erro', !d.nome); document.getElementById('g-tel').classList.toggle('tem-erro', !d.tel);
+        if (!d.ok) return;
+      } else if (u && !unidadeOk(u)) { mostrarErrosUnidade(u); return; }
+      novaUnidade(b.getAttribute('data-t'));
+    }
+    else if (a === 'continuar') {
+      var d2 = dadosOk(); $('g-nome').classList.toggle('tem-erro', !d2.nome); $('g-tel').classList.toggle('tem-erro', !d2.tel);
+      if (d2.ok) ir(units.length - 1);
+    }
+    else if (a === 'voltar') { ir(tela === 'final' ? units.length - 1 : (tela > 0 ? tela - 1 : 'dados')); }
+    else if (a === 'remover') {
+      units.splice(tela, 1);
+      ir(units.length ? Math.min(tela, units.length - 1) : 'dados');
+    }
+    else if (a === 'sabor') { u.sabor = b.getAttribute('data-k'); render(); }
+    else if (a === 'vin') { u.vin = (b.getAttribute('data-k') === 'true'); render(); }
+    else if (a === 'ad') { var k = b.getAttribute('data-k'); if (u.ad[k]) delete u.ad[k]; else u.ad[k] = true; render(); }
+    else if (a === 'qtd') { u.qtd = Math.max(1, Math.min(CFG.MAX_ONIGIRI, u.qtd + (+b.getAttribute('data-d')))); render(); }
+    else if (a === 'enviar') {
+      if (!unidadeOk(u)) { mostrarErrosUnidade(u); return; }
+      var ruim = primeiraInvalida();
+      if (ruim >= 0) { ir(ruim); setTimeout(function(){ mostrarErrosUnidade(units[ruim]); }, 50); return; }
+      ir('final');
+    }
+    else if (a === 'confirmar') {
+      var okc = dados.ciente; $('e-ciente').style.display = okc ? 'none' : 'block';
+      if (!okc) { $('g-ciente').scrollIntoView({behavior:'smooth', block:'center'}); return; }
+      enviarPedido();
+    }
+    else if (a === 'tentar') { ir('final'); }
+    else if (a === 'copiar') { copiarPix(b); }
+  });
+
+  document.addEventListener('input', function(ev){
+    if (ev.target.id !== 'tel') return;
+    var d = ev.target.value.replace(/\D/g,'').slice(0, 11), s = d, c = d.length > 10 ? 7 : 6;
+    if (d.length > 2) s = '(' + d.slice(0,2) + ') ' + d.slice(2, c) + (d.length > c ? '-' + d.slice(c) : '');
+    ev.target.value = s;
+  });
+
+  if (CFG.API_URL.indexOf('COLE_AQUI') === 0) {
+    mostrarEstado('<h2>Página ainda não configurada</h2><p>Falta ligar o serviço de pedidos.</p>' + linkForms('Abrir o formulário de pedidos'), 'falha');
+  } else {
+    carregar();
+  }
+})();
+</script>
+</body>
+</html>
+
+
+
+
