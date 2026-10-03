@@ -174,16 +174,10 @@ var CFG = {
     if (forcar) agora = new Date(CFG.ABRE.getTime() + 60000);
     if (agora >= CFG.FECHA) { mostrarEstado('<h2>Pedidos encerrados</h2><p>Os pedidos desta retirada já foram encerrados. Fique de olho no nosso Instagram para a próxima!</p>'); return; }
     if (agora < CFG.ABRE) { mostrarEstado('<h2>Pedidos abrem em breve</h2><p>Os pedidos abrem <b>' + fmtDia(CFG.ABRE) + ', às ' + fmtHora(CFG.ABRE) + '</b>. Volte aqui nesse horário!</p>'); return; }
-    var ctl = new AbortController(); var t = setTimeout(function(){ ctl.abort(); }, 10000);
-    fetch(CFG.API_URL + '?acao=estado', {signal: ctl.signal}).then(function(r){ return r.json(); }).then(function(j){
-      clearTimeout(t);
-      if (!j || j.ok !== true) throw new Error('estado');
-      if (!j.aberto) { mostrarEstado('<h2>Pedidos fechados no momento</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
-      $('carregando').hidden = true; $('tela').hidden = false; render();
-    }).catch(function(){
-      clearTimeout(t);
-      mostrarEstado('<h2>Faça seu pedido pelo formulário</h2><p>Nossa página de pedidos não respondeu. Você pode fazer o pedido pelo formulário do Google, que funciona igual:</p>' + linkForms('Abrir o formulário de pedidos') + '<button class="btn sec2" style="margin-top:10px" onclick="location.reload()">Tentar de novo aqui</button>', 'falha');
-    });
+    // A página abre na hora (o serviço do Google pode demorar na primeira chamada). O "ping" só acorda o
+    // serviço enquanto o cliente preenche os dados; se o formulário estiver fechado, o envio avisa.
+    $('carregando').hidden = true; $('tela').hidden = false; render();
+    try { fetch(CFG.API_URL + '?acao=ping').catch(function(){}); } catch(e){}
   }
 
   /* ---------- telas ---------- */
@@ -319,9 +313,12 @@ var CFG = {
     units.push(t === 'poke' ? {t:'poke', sabor:null, vin:null, ad:{}} : {t:'oni', sabor:null, qtd:1});
     ir(units.length - 1);
   }
-  function falhaEnvio(){
+  function falhaEnvio(incerto){
     enviando = false;
-    $('tela').innerHTML = '<div class="msg falha"><h2>Não conseguimos enviar por aqui</h2><p>Seu pedido <b>ainda não foi registrado</b>. Faça o pedido pelo formulário do Google, que funciona igual:</p>' + linkForms('Fazer pedido pelo formulário') + '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar e tentar de novo</button></div>';
+    var texto = incerto
+      ? '<p>Não recebemos a confirmação do envio, então seu pedido <b>pode ou não ter sido registrado</b>. Se preferir não esperar, faça o pedido pelo formulário do Google, que funciona igual. Se o pedido vier em duplicidade, a gente avisa você.</p>'
+      : '<p>Seu pedido <b>ainda não foi registrado</b>. Faça o pedido pelo formulário do Google, que funciona igual:</p>';
+    $('tela').innerHTML = '<div class="msg falha"><h2>Não conseguimos enviar por aqui</h2>' + texto + linkForms('Fazer pedido pelo formulário') + '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar e tentar de novo</button></div>';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
   /* ---------- Pix copia e cola (BR Code estático) ---------- */
@@ -384,17 +381,24 @@ var CFG = {
       pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: Object.keys(u.ad)}; }),
       onigiris: tot
     };
-    var ctl = new AbortController(); var t = setTimeout(function(){ ctl.abort(); }, 30000);
-    fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(corpo), signal: ctl.signal})
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        clearTimeout(t);
-        if (j && j.ok === true) { sucesso(j); return; }
-        if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
-        if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
-        falhaEnvio();
-      })
-      .catch(function(){ clearTimeout(t); falhaEnvio(); });
+    // Até 3 tentativas com o MESMO número de pedido: se a primeira demorou mas o Google gravou, a segunda
+    // recebe de volta o mesmo pedido (o serviço não duplica). Só desiste depois de todas.
+    function tentar(n){
+      if (b) b.textContent = n === 1 ? 'Enviando…' : 'Ainda enviando… não feche esta tela';
+      var ctl = new AbortController(); var t = setTimeout(function(){ ctl.abort(); }, 45000);
+      fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(corpo), signal: ctl.signal})
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          clearTimeout(t);
+          if (j && j.ok === true) { sucesso(j); return; }
+          if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
+          if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
+          if (j && j.codigo === 'ocupado' && n < 3) { tentar(n + 1); return; }
+          falhaEnvio(false);
+        })
+        .catch(function(){ clearTimeout(t); if (n < 3) tentar(n + 1); else falhaEnvio(true); });
+    }
+    tentar(1);
   }
 
   document.addEventListener('click', function(ev){
