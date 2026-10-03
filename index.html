@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tanuki Ramen</title>
+<meta name="theme-color" content="#eb6834">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tanuki">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <img src="icon-192.png" alt="" width="96" height="96">
+  <h1>Tanuki Ramen</h1>
+  <form id="form-login">
+    <label for="pin">Senha do app</label>
+    <input id="pin" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+    <p id="login-erro" class="erro" role="alert"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>🍜 Tanuki Ramen</h1>
+    <div class="topo-dir">
+      <span id="status"></span>
+      <button id="btn-atualizar" aria-label="Atualizar">↻</button>
+    </div>
+  </header>
+  <main id="tela"></main>
+  <nav id="abas">
+    <button data-aba="dashboard" class="ativa">Dashboard</button>
+    <button data-aba="etiquetas">Etiquetas</button>
+    <button data-aba="custos">Custos</button>
+  </nav>
+</div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
