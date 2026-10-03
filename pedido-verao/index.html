@@ -343,12 +343,14 @@ var CFG = {
   }
   function htmlPagamento(res, total){
     if (!CFG.PIX.chave || !CFG.PIX.titular) return '<p>Entraremos em contato para o pagamento.</p>';
+    // Identificador interno do Pix = ordem do pedido (ajuda a conciliar no extrato). O número nunca aparece na tela
+    // nem na mensagem do WhatsApp: o cliente não deve saber quantos pedidos existem.
     var codigo = pixPayload(total, 'TNK' + res.pedido);
     var h = '<div class="pix"><div class="sec">Pague com Pix</div><p class="nota" style="margin:0 0 8px">Copie o código abaixo e cole na opção "Pix copia e cola" do app do seu banco. O valor já vai preenchido. O Pix aparece em nome de <b>Arthur Orsi Consultoria Ltda</b>, a empresa do Tanuki Ramen.</p>';
     h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(codigo) + '</textarea>';
     h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
     if (CFG.WHATSAPP) {
-      var txt = 'Olá! Segue o comprovante do pedido nº ' + res.pedido + ' (' + dados.nome.trim() + '), valor ' + brl(total) + '.';
+      var txt = 'Olá! Segue o comprovante do pedido de ' + dados.nome.trim() + ', valor ' + brl(total) + '.';
       h += '<a class="btn sec2" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/' + CFG.WHATSAPP + '?text=' + encodeURIComponent(txt) + '">Enviar comprovante no WhatsApp</a>';
     }
     return h + '<p class="nota">Depois de pagar, envie o comprovante no nosso WhatsApp para confirmarmos o pagamento.</p></div>';
@@ -367,7 +369,7 @@ var CFG = {
     enviando = false;
     var total = Number(res.total);
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
-    $('tela').innerHTML = '<div class="msg ok"><div class="num">Pedido nº ' + esc(res.pedido) + '</div><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
+    $('tela').innerHTML = '<div class="msg ok"><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
   function enviarPedido(){
