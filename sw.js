@@ -1,5 +1,5 @@
 // Guarda a "casca" do app para abrir offline. Os dados ficam no localStorage (app.js).
-const CACHE = 'tanuki-v1';
+const CACHE = 'tanuki-v2';
 const CASCA = ['./', 'index.html', 'app.js', 'style.css', 'config.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png'];
 
@@ -15,7 +15,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return; // API: direto na rede
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin) return; // API: direto na rede
+  if (url.pathname.indexOf('/pedido-verao/') >= 0) return; // página dos clientes: nunca guardar cópia
   // rede primeiro (pega atualizações), cache se estiver sem internet
   e.respondWith(fetch(req).then(r => {
     const copia = r.clone();

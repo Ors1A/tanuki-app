@@ -23,7 +23,7 @@ const foneLink = t => { const d = String(t || '').replace(/\D/g, ''); return d.l
 async function buscar() {
   const r = await fetch(window.TANUKI_API, { method: 'POST', body: JSON.stringify({ pin }), redirect: 'follow' });
   const j = await r.json();
-  if (!j.ok) { const e = new Error(j.erro || 'erro'); e.senha = j.erro === 'senha'; throw e; }
+  if (!j.ok) { const e = new Error(j.erro || 'erro'); e.senha = j.erro === 'senha'; e.bloqueado = j.erro === 'bloqueado'; throw e; }
   return j;
 }
 
@@ -37,6 +37,7 @@ async function atualizar(silencioso) {
     desenhar();
   } catch (e) {
     if (e.senha) { sair(); $('#login-erro').textContent = 'Senha incorreta.'; return; }
+    if (e.bloqueado) { $('#status').textContent = 'Bloqueado 15 min (senhas erradas)'; return; }
     if (!silencioso || !dados) $('#status').textContent = 'Sem conexão';
     else $('#status').textContent = 'Offline · dados salvos';
   } finally {
@@ -181,7 +182,9 @@ $('#form-login').onsubmit = async ev => {
     $('#login-erro').textContent = '';
     entrar();
   } catch (e) {
-    $('#login-erro').textContent = e.senha ? 'Senha incorreta.' : 'Não consegui conectar. Confira a internet.';
+    $('#login-erro').textContent = e.senha ? 'Senha incorreta.'
+      : e.bloqueado ? 'Muitas senhas erradas. Espere 15 minutos.'
+      : 'Não consegui conectar. Confira a internet.';
   }
 };
 document.addEventListener('visibilitychange', () => { if (!document.hidden && pin && !$('#app').hidden) atualizar(true); });
