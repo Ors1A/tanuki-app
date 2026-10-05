@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1E2B2F">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Cardápio de Verão - Tanuki Ramen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -196,8 +198,9 @@ var CFG = {
 
   function htmlDados(){
     var h = '<div class="topo"><h2>Seus dados</h2></div>';
-    h += '<div class="card"><div class="campo-grupo" id="g-nome"><label class="campo" for="nome">Nome completo</label><input id="nome" type="text" autocomplete="name" maxlength="80" value="' + esc(dados.nome) + '"><div class="erro-campo">Informe o nome completo.</div></div>';
-    h += '<div class="campo-grupo" id="g-tel"><label class="campo" for="tel">Telefone (WhatsApp)</label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(49) 99999-9999" maxlength="20" value="' + esc(dados.tel) + '"><div class="erro-campo">Telefone inválido. Use DDD + número.</div></div></div>';
+    h += '<div class="card"><div class="campo-grupo" id="g-nome"><label class="campo" for="nome">Nome completo</label><input id="nome" type="text" autocomplete="name" maxlength="80" value="' + esc(dados.nome) + '"><div class="erro-campo">Informe o nome completo, só com letras.</div></div>';
+    h += '<div class="campo-grupo" id="g-tel"><label class="campo" for="tel">Telefone (WhatsApp)</label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(49) 99999-9999" maxlength="20" value="' + esc(dados.tel) + '"><div class="erro-campo">Telefone inválido. Use DDD + número.</div></div>';
+    h += '<p class="nota">Usamos seu nome e telefone só para este pedido e para falar com você sobre ele.</p></div>';
     h += '<div class="acoes"><div class="tit">' + (units.length ? 'Seu pedido tem ' + units.length + (units.length === 1 ? ' item. Continue ou adicione:' : ' itens. Continue ou adicione:') : 'O que você quer pedir?') + '</div>';
     if (units.length) h += '<button class="btn escuro" data-a="continuar">Continuar pedido</button>';
     h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div></div>';
@@ -275,7 +278,18 @@ var CFG = {
   }
 
   /* ---------- validação ---------- */
-  function foneOk(v){ var d = v.replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,''); return /^\d{10,11}$/.test(d); }
+  // Mesmas regras do serviço (servico-pedido-verao.gs): tira +55 e o 0 de longa distância; DDD válido;
+  // celular com 9 na frente; fixo de 2 a 5; não pode ser tudo igual.
+  function digitosTel(v){ var d = String(v).replace(/\D/g,''); if (d.length >= 12 && d.indexOf('55') === 0) d = d.slice(2); if (d.charAt(0) === '0') d = d.slice(1); return d; }
+  function foneOk(v){
+    var d = digitosTel(v);
+    if (!/^[1-9][1-9]\d{8,9}$/.test(d)) return false;
+    if (d.length === 11 && d.charAt(2) !== '9') return false;
+    if (d.length === 10 && !/[2-5]/.test(d.charAt(2))) return false;
+    return !/^(\d)\1+$/.test(d.slice(-8));
+  }
+  var NOME_OK = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’´.\- ]{2,79}$/;
+  function nomeOk(v){ var n = String(v).normalize('NFC').trim().replace(/\s+/g,' '); return NOME_OK.test(n) && n.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g,'').length >= 3; }
   function lerDados(){
     if ($('nome')) dados.nome = $('nome').value;
     if ($('tel')) dados.tel = $('tel').value;
@@ -283,7 +297,7 @@ var CFG = {
     if ($('ciente')) dados.ciente = $('ciente').checked;
   }
   function dadosOk(){
-    var n = dados.nome.trim().length >= 3, t = foneOk(dados.tel);
+    var n = nomeOk(dados.nome), t = foneOk(dados.tel);
     return {nome: n, tel: t, ok: n && t};
   }
   function unidadeOk(u){
@@ -313,12 +327,32 @@ var CFG = {
     units.push(t === 'poke' ? {t:'poke', sabor:null, vin:null, ad:{}} : {t:'oni', sabor:null, qtd:1});
     ir(units.length - 1);
   }
+  function linkWhats(txt, msg){
+    if (!CFG.WHATSAPP) return '';
+    return '<a class="btn sec2" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/' + CFG.WHATSAPP + '?text=' + encodeURIComponent(msg) + '">' + txt + '</a>';
+  }
   function falhaEnvio(incerto){
     enviando = false;
-    var texto = incerto
-      ? '<p>Não recebemos a confirmação do envio, então seu pedido <b>pode ou não ter sido registrado</b>. Se preferir não esperar, faça o pedido pelo formulário do Google, que funciona igual. Se o pedido vier em duplicidade, a gente avisa você.</p>'
-      : '<p>Seu pedido <b>ainda não foi registrado</b>. Faça o pedido pelo formulário do Google, que funciona igual:</p>';
-    $('tela').innerHTML = '<div class="msg falha"><h2>Não conseguimos enviar por aqui</h2>' + texto + linkForms('Fazer pedido pelo formulário') + '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar e tentar de novo</button></div>';
+    var h;
+    if (incerto) {
+      // Pode ter sido gravado: NÃO deixar editar nem mandar pelo Google Forms (viraria pedido duplicado).
+      // "Tentar de novo" reenvia exatamente o mesmo pedido; o serviço devolve o mesmo resultado se já tiver gravado.
+      h = '<h2>Sem resposta do sistema</h2><p>Não recebemos a confirmação, então seu pedido <b>pode ou não ter sido registrado</b>. Toque em <b>Tentar de novo</b>: se ele já tiver entrado, aparece a confirmação, sem duplicar.</p>' +
+        '<button class="btn prim" style="margin-top:14px" data-a="reenviar">Tentar de novo</button>' +
+        linkWhats('Falar com a gente no WhatsApp', 'Olá! Tentei fazer um pedido pela página e não recebi a confirmação. Nome: ' + dados.nome.trim() + '.');
+    } else {
+      h = '<h2>Não conseguimos enviar por aqui</h2><p>Seu pedido <b>ainda não foi registrado</b>. Faça o pedido pelo formulário do Google, que funciona igual:</p>' +
+        linkForms('Fazer pedido pelo formulário') + '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar e tentar de novo</button>';
+    }
+    $('tela').innerHTML = '<div class="msg falha">' + h + '</div>';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+  // Pedido recusado pelo limite por telefone/nome ou por conflito com um pedido já enviado.
+  function recusado(msg){
+    enviando = false;
+    $('tela').innerHTML = '<div class="msg aviso"><h2>Já temos um pedido seu</h2><p>' + esc(msg) + '</p>' +
+      linkWhats('Falar com a gente no WhatsApp', 'Olá! Já fiz um pedido e quero alterar. Nome: ' + dados.nome.trim() + '.') +
+      '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar ao pedido</button></div>';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
   /* ---------- Pix copia e cola (BR Code estático) ---------- */
@@ -343,16 +377,14 @@ var CFG = {
   }
   function htmlPagamento(res, total){
     if (!CFG.PIX.chave || !CFG.PIX.titular) return '<p>Entraremos em contato para o pagamento.</p>';
-    // Identificador interno do Pix = ordem do pedido (ajuda a conciliar no extrato). O número nunca aparece na tela
-    // nem na mensagem do WhatsApp: o cliente não deve saber quantos pedidos existem.
-    var codigo = pixPayload(total, 'TNK' + res.pedido);
+    // Código do pedido (TNK + 6 letras/números aleatórios, criado pelo serviço): vai no Pix e na mensagem do
+    // comprovante para conferir o pagamento. Não é sequencial, então não revela quantos pedidos existem.
+    var ref = String(res.ref || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 25);
+    var codigo = pixPayload(total, ref || '***');
     var h = '<div class="pix"><div class="sec">Pague com Pix</div><p class="nota" style="margin:0 0 8px">Copie o código abaixo e cole na opção "Pix copia e cola" do app do seu banco. O valor já vai preenchido. O Pix aparece em nome de <b>Arthur Orsi Consultoria Ltda</b>, a empresa do Tanuki Ramen.</p>';
     h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(codigo) + '</textarea>';
     h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
-    if (CFG.WHATSAPP) {
-      var txt = 'Olá! Segue o comprovante do pedido de ' + dados.nome.trim() + ', valor ' + brl(total) + '.';
-      h += '<a class="btn sec2" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/' + CFG.WHATSAPP + '?text=' + encodeURIComponent(txt) + '">Enviar comprovante no WhatsApp</a>';
-    }
+    h += linkWhats('Enviar comprovante no WhatsApp', 'Olá! Segue o comprovante do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + '.');
     return h + '<p class="nota">Depois de pagar, envie o comprovante no nosso WhatsApp para confirmarmos o pagamento.</p></div>';
   }
   function copiarPix(b){
@@ -372,17 +404,24 @@ var CFG = {
     $('tela').innerHTML = '<div class="msg ok"><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
-  function enviarPedido(){
+  var ultimoCorpo = null;  // último pedido enviado; "Tentar de novo" (sem resposta) reenvia exatamente este
+  function enviarPedido(reenvio){
     if (enviando) return;
-    var tot = totaisOni();
-    for (var k in tot) if (tot[k] > CFG.MAX_ONIGIRI) { alert('No máximo ' + CFG.MAX_ONIGIRI + ' onigiris de cada sabor. Ajuste a quantidade.'); return; }
+    var corpo;
+    if (reenvio && ultimoCorpo) {
+      corpo = ultimoCorpo;
+    } else {
+      var tot = totaisOni();
+      for (var k in tot) if (tot[k] > CFG.MAX_ONIGIRI) { alert('No máximo ' + CFG.MAX_ONIGIRI + ' onigiris de cada sabor. Ajuste a quantidade.'); return; }
+      corpo = {
+        id: idPedido, nome: dados.nome, telefone: dados.tel, obs: dados.obs, origem: origem, ciente: true,
+        pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: Object.keys(u.ad)}; }),
+        onigiris: tot
+      };
+    }
+    ultimoCorpo = corpo;
     enviando = true;
-    var b = $('btnConfirmar'); if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
-    var corpo = {
-      id: idPedido, nome: dados.nome, telefone: dados.tel, obs: dados.obs, origem: origem, ciente: true,
-      pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: Object.keys(u.ad)}; }),
-      onigiris: tot
-    };
+    var b = $('btnConfirmar') || $('btnReenviar'); if (b) { b.disabled = true; b.textContent = 'Enviando…'; }
     // Até 3 tentativas com o MESMO número de pedido: se a primeira demorou mas o Google gravou, a segunda
     // recebe de volta o mesmo pedido (o serviço não duplica). Só desiste depois de todas.
     function tentar(n){
@@ -395,6 +434,7 @@ var CFG = {
           if (j && j.ok === true) { sucesso(j); return; }
           if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
           if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
+          if (j && (j.codigo === 'limite' || j.codigo === 'conflito')) { recusado(j.mensagem); return; }
           if (j && j.codigo === 'ocupado' && n < 3) { tentar(n + 1); return; }
           falhaEnvio(false);
         })
@@ -441,12 +481,14 @@ var CFG = {
       enviarPedido();
     }
     else if (a === 'tentar') { ir('final'); }
+    else if (a === 'reenviar') { b.id = 'btnReenviar'; enviarPedido(true); }
     else if (a === 'copiar') { copiarPix(b); }
   });
 
   document.addEventListener('input', function(ev){
     if (ev.target.id !== 'tel') return;
-    var d = ev.target.value.replace(/\D/g,'').slice(0, 11), s = d, c = d.length > 10 ? 7 : 6;
+    // digitosTel tira o +55 e o 0 (o preenchimento automático do celular costuma mandar "+55 49 9...").
+    var d = digitosTel(ev.target.value).slice(0, 11), s = d, c = d.length > 10 ? 7 : 6;
     if (d.length > 2) s = '(' + d.slice(0,2) + ') ' + d.slice(2, c) + (d.length > c ? '-' + d.slice(c) : '');
     ev.target.value = s;
   });
