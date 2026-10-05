@@ -96,7 +96,7 @@ input:focus,textarea:focus{border-color:var(--accent)}
   <div class="hero"><img src="banner.jpg" alt="Tanuki Ramen - Verão no Havaí" width="1200" height="300"></div>
   <div class="intro"><div class="wrap" style="padding:0">
     <h1>Cardápio de Verão</h1>
-    <p>Onigiri e Poke do Tanuki Ramen.<br>📍 Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda).</p>
+    <p>Onigiri e Poke do Tanuki Ramen.<br>📍 Retirada no sábado, <b>10/10, às 19h15</b>, na XV de Novembro, 68 (em cima da casa da moda).</p>
   </div></div>
 </header>
 <main class="wrap"><div id="carregando" class="carregando">Carregando…</div><div id="tela" hidden></div></main>
@@ -488,7 +488,7 @@ var CFG = {
     enviando = false;
     var total = Number(res.total);
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
-    $('tela').innerHTML = '<div class="msg ok"><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada dia <b>10/10</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
+    $('tela').innerHTML = '<div class="msg ok"><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada no sábado, <b>10/10, às 19h15</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
   var ultimoCorpo = null;  // último pedido enviado; "Tentar de novo" (sem resposta) reenvia exatamente este
