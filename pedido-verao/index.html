@@ -51,6 +51,15 @@ input:focus,textarea:focus{border-color:var(--accent)}
 .passo button{width:48px;height:48px;border-radius:50%;border:2px solid var(--accent);background:#fff;color:var(--accent);font-size:28px;font-weight:700;line-height:1;cursor:pointer;font-family:inherit}
 .passo button[disabled]{opacity:.35}
 .passo output{min-width:34px;text-align:center;font-family:'Fredoka',Arial,sans-serif;font-size:30px;font-weight:600}
+.linha{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.linha:last-child{border-bottom:0}
+.linha .t{flex:1;font-weight:600;font-size:16px}
+.linha small{display:block;font-weight:600;color:var(--muted);font-size:13px}
+.linha.on .t{color:var(--accent)}
+.passo.mini{gap:8px}
+.passo.mini button{width:40px;height:40px;font-size:24px}
+.passo.mini output{min-width:24px;font-size:24px}
+.base{background:var(--sand);border-radius:14px;padding:12px 14px;font-size:14px;color:var(--ink);margin-top:12px}
 .acoes{display:flex;flex-direction:column;gap:10px;margin-top:20px}
 .acoes .tit{font-weight:700;font-size:15px;color:var(--muted)}
 .btn{font:inherit;font-weight:700;font-size:18px;border-radius:14px;padding:15px 18px;cursor:pointer;text-align:center;text-decoration:none;display:block;width:100%}
@@ -105,32 +114,53 @@ var CFG = {
   ABRE: new Date('2026-10-05T18:30:00-03:00'),   // segunda, 18h30
   FECHA: new Date('2026-10-10T05:00:00-03:00'),  // sábado, 5h
   PRECO_POKE: 55, PRECO_ONIGIRI: 13, MAX_POKES: 5, MAX_ONI_PAGINAS: 3, MAX_ONIGIRI: 10,
+  // Preços, chaves e máximos precisam bater com o serviço (PV): o teste automático confere.
   SABORES: [
-    {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu'},
-    {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha'},
-    {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com edamame'}
+    {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu e gergelim', peso:'~435 g'},
+    {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha da casa', peso:'~425 g'},
+    {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com ervilhas', peso:'~470 g'}
   ],
+  BASE_POKE: 'Todos levam arroz de sushi 150 g, 120 g de proteína, sunomono (pepino), Gari - Gengibre em Conserva, cebolinha, gergelim, furikake e maionese japonesa. Molhos vão em pote separado. Pesos aproximados, sem o pote.',
+  // max: quantas porções por poke (1 = marca/desmarca). prot: aparece em "Proteínas extras".
   ADICIONAIS: [
-    {k:'edamame', nome:'Edamame', por:'35 g', p:6},
-    {k:'manga', nome:'Manga', por:'35 g', p:3},
-    {k:'cenoura', nome:'Cenoura', por:'30 g', p:3},
-    {k:'kani', nome:'Kani', por:'40 g', p:6},
-    {k:'palmito', nome:'Palmito pupunha', por:'40 g', p:5},
-    {k:'castanha', nome:'Castanha de caju', por:'15 g', p:4},
-    {k:'creamcheese', nome:'Cream cheese', por:'25 g', p:4},
-    {k:'gari', nome:'Gari extra', por:'12 g', p:2.5},
-    {k:'nori', nome:'Nori', por:'¼ de folha', p:2},
-    {k:'avocado', nome:'Avocado', por:'45 g', p:5},
-    {k:'tofu', nome:'Tofu marinado', por:'80 g', p:9},
-    {k:'shimeji', nome:'Shimeji', por:'40 g', p:7},
-    {k:'ajitama', nome:'Ajitama (ovo marinado)', por:'1 un', p:4},
-    {k:'arroz', nome:'Arroz extra', por:'100 g', p:4},
-    {k:'proteina', nome:'Proteína em dobro', por:'120 g', p:20}
+    {k:'salmao', nome:'Salmão marinado', por:'50 g', p:10.9, max:3, prot:true},
+    {k:'atum', nome:'Atum cozido com Maionese e Sriracha', por:'50 g', p:10.9, max:3, prot:true},
+    {k:'shimejitofu', nome:'Shimeji + Tofu', por:'50 g', p:10.9, max:3, prot:true},
+    {k:'tofu', nome:'Tofu marinado', por:'40 g', p:4.9, max:1},
+    {k:'shimeji', nome:'Shimeji', por:'40 g', p:7, max:1},
+    {k:'arroz', nome:'Arroz extra', por:'50 g', p:2.9, max:3},
+    {k:'sunomono', nome:'Sunomono', por:'50 g', p:1.5, max:3},
+    {k:'repolho', nome:'Mix de Repolho com Goma Darê (Molho de Gergelim)', por:'50 g', p:1.9, max:3},
+    {k:'gomadare', nome:'Goma darê - Molho de gergelim', por:'10 g', p:0.9, max:1},
+    {k:'manga', nome:'Manga', por:'35 g', p:3, max:1},
+    {k:'cenoura', nome:'Cenoura', por:'30 g', p:3, max:1},
+    {k:'kani', nome:'Kani', por:'40 g', p:6, max:1},
+    {k:'palmito', nome:'Palmito pupunha', por:'40 g', p:5, max:1},
+    {k:'castanha', nome:'Castanha de caju', por:'15 g', p:4, max:1},
+    {k:'creamcheese', nome:'Cream cheese', por:'25 g', p:4, max:1},
+    {k:'gari', nome:'Gari - Gengibre em Conserva', por:'12 g', p:2.5, max:1},
+    {k:'nori', nome:'Nori', por:'¼ de folha', p:2, max:1},
+    {k:'avocado', nome:'Avocado', por:'45 g', p:5, max:1},
+    {k:'ajitama', nome:'Ajitama (ovo marinado)', por:'1 un', p:4, max:1}
   ],
   ONIGIRIS: [
     {k:'salmao', nome:'Salmão', desc:'Salmão cru, cream cheese e cebolinha'},
     {k:'tuna', nome:'Tuna Mayo', desc:'Atum com maionese japonesa'},
     {k:'shimeji', nome:'Shimeji (vegetariano)', desc:'Contém castanha de caju e leite'}
+  ],
+  // Acompanhamentos do onigiri (só aparecem se o pedido tiver onigiri)
+  ACOMP: [
+    {k:'sunomono', nome:'Sunomono', por:'50 g', p:1.5, max:3},
+    {k:'repolho', nome:'Mix de Repolho com Goma Darê (Molho de Gergelim)', por:'50 g', p:1.9, max:3}
+  ],
+  SOBREMESAS: [
+    {k:'pudim', nome:'Pudim de matcha', por:'150 g', p:10, max:5}
+  ],
+  AVISOS: [
+    'Salmão cru: consumir preferencialmente no dia da retirada. Conservar a 8 °C ou menos por até 2 dias.',
+    'Onigiri de shimeji: contém castanha de caju e leite.',
+    'Kani e ajitama não são vegetarianos.',
+    'Leve o pedido direto para a geladeira depois da retirada.'
   ]
 };
 /* =========================================================== */
@@ -141,8 +171,10 @@ var CFG = {
   var formsLink = CFG.FORMS_URL + '?usp=pp_url&' + CFG.FORMS_ORIGEM_ENTRY + '=' + encodeURIComponent(origem);
 
   var dados = {nome:'', tel:'', obs:'', ciente:false};
-  var units = [];          // {t:'poke', sabor, vin, ad:{}} | {t:'oni', sabor, qtd}
-  var tela = 'dados';      // 'dados' | número (índice em units) | 'final'
+  var units = [];          // {t:'poke', sabor, vin, ad:{chave: qtd}} | {t:'oni', sabor, qtd}
+  var extras = {acomp:{}, sob:{}};   // acompanhamentos do onigiri e sobremesas: {chave: qtd}
+  // Telas: 'dados' | 'u<i>a' (poke: sabor) | 'u<i>b' (poke: adicionais) | 'u<i>' (onigiri) | 'acomp' | 'sob' | 'final'
+  var tela = 'dados';
   var enviando = false;
   var idPedido = null;
   try { idPedido = sessionStorage.getItem('tanuki_id_pedido'); } catch(e){}
@@ -159,6 +191,22 @@ var CFG = {
   function titulo(i){ return (units[i].t === 'poke' ? 'Poke ' : 'Onigiri ') + numero(i); }
   function linkForms(txt){ return '<a class="btn prim" style="margin-top:14px" href="' + esc(formsLink) + '">' + txt + '</a>'; }
   function ir(t){ tela = t; render(); window.scrollTo({top: document.querySelector('.intro').offsetTop, behavior: 'smooth'}); }
+  function unidadeDe(t){ var m = /^u(\d+)/.exec(String(t)); return m ? +m[1] : -1; }
+  function primeiraTela(i){ return units[i].t === 'poke' ? 'u' + i + 'a' : 'u' + i; }
+  function passos(){
+    var p = ['dados'];
+    units.forEach(function(u, i){ if (u.t === 'poke') p.push('u' + i + 'a', 'u' + i + 'b'); else p.push('u' + i); });
+    if (contar('oni')) p.push('acomp');
+    p.push('sob', 'final');
+    return p;
+  }
+  function depoisDosItens(){ return contar('oni') ? 'acomp' : 'sob'; }
+  // Linha com − número + (quantidade de 0 a max)
+  function passoQtd(g, k, nome, sub, q, max){
+    return '<div class="linha' + (q ? ' on' : '') + '"><span class="t">' + esc(nome) + '<small>' + sub + '</small></span><div class="passo mini">' +
+      '<button data-a="q" data-g="' + g + '" data-k="' + k + '" data-d="-1"' + (q <= 0 ? ' disabled' : '') + ' aria-label="Menos ' + esc(nome) + '">−</button><output>' + q + '</output>' +
+      '<button data-a="q" data-g="' + g + '" data-k="' + k + '" data-d="1"' + (q >= max ? ' disabled' : '') + ' aria-label="Mais ' + esc(nome) + '">+</button></div></div>';
+  }
 
   /* ---------- estado geral ---------- */
   function mostrarEstado(html, cls){
@@ -187,12 +235,14 @@ var CFG = {
     var el = $('tela');
     if (tela === 'dados') el.innerHTML = htmlDados();
     else if (tela === 'final') el.innerHTML = htmlFinal();
+    else if (tela === 'acomp') el.innerHTML = htmlAcomp();
+    else if (tela === 'sob') el.innerHTML = htmlSobremesa();
     else el.innerHTML = htmlUnidade(tela);
   }
 
-  function barra(passoAtual){
-    var n = units.length + 2, h = '<div class="passos">';
-    for (var i = 0; i < n; i++) h += '<i class="' + (i <= passoAtual ? 'on' : '') + '"></i>';
+  function barra(){
+    var p = passos(), at = p.indexOf(tela), h = '<div class="passos">';
+    for (var i = 0; i < p.length; i++) h += '<i class="' + (i <= at ? 'on' : '') + '"></i>';
     return h + '</div>';
   }
 
@@ -207,20 +257,42 @@ var CFG = {
     return h;
   }
 
-  function htmlUnidade(i){
-    var u = units[i], h = '';
-    h += '<div class="topo"><h2>' + titulo(i) + '</h2><button class="link rem" data-a="remover">Remover</button></div>';
+  // Botões "Quer pedir mais alguma coisa?" + Continuar (no último passo de cada item)
+  function maisItens(){
+    var np = contar('poke'), no = contar('oni');
+    var h = '<div class="acoes"><div class="tit">Quer pedir mais alguma coisa?</div>', bots = '';
+    if (np < CFG.MAX_POKES) bots += '<button class="btn sec2" data-a="novo" data-t="poke">' + (np ? 'Poke ' + (np + 1) : 'Poke') + '</button>';
+    if (no < CFG.MAX_ONI_PAGINAS) bots += '<button class="btn sec2" data-a="novo" data-t="oni">' + (no ? 'Onigiri ' + (no + 1) : 'Onigiri') + '</button>';
+    if (bots) h += '<div class="dupla">' + bots + '</div>';
+    return h + '<button class="btn prim" data-a="seguir">Continuar</button></div>';
+  }
+
+  function htmlUnidade(t){
+    var i = unidadeDe(t), u = units[i], h = '';
+    var parteB = /b$/.test(t);
+    h += '<div class="topo"><h2>' + titulo(i) + (parteB ? ' · adicionais' : '') + '</h2><button class="link rem" data-a="remover">Remover</button></div>';
     h += '<button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
-    if (u.t === 'poke') {
+    if (u.t === 'poke' && !parteB) {
       h += '<p class="sub">Poke R$ ' + CFG.PRECO_POKE + ',00 · molhos e vinagrete vão em pote separado.</p><div class="card">';
       h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
-      CFG.SABORES.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + '</small></span></button>'; });
+      CFG.SABORES.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + ' · bowl de ' + s.peso + '</small></span></button>'; });
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
+      h += '<div class="base">' + esc(CFG.BASE_POKE) + '</div>';
       h += '<div class="sec">Vinagrete de cebola roxa <small>(pote separado, sem custo)</small></div><div class="opcoes">';
       [[true,'Com vinagrete'],[false,'Sem vinagrete']].forEach(function(o){ h += '<button class="chip" aria-pressed="' + (u.vin === o[0]) + '" data-a="vin" data-k="' + o[0] + '"><span class="dot"></span><span class="t">' + o[1] + '</span></button>'; });
-      h += '</div><div class="erro-campo" id="e-vin">Escolha uma opção.</div>';
-      h += '<div class="sec">Adicionais <small>(opcional)</small></div><div class="opcoes">';
-      CFG.ADICIONAIS.forEach(function(a){ h += '<button class="chip check" aria-pressed="' + (!!u.ad[a.k]) + '" data-a="ad" data-k="' + a.k + '"><span class="dot"></span><span class="t">' + a.nome + '<small>' + a.por + ' · +' + brl(a.p) + '</small></span></button>'; });
+      h += '</div><div class="erro-campo" id="e-vin">Escolha uma opção.</div></div>';
+      h += '<div class="acoes"><button class="btn prim" data-a="avancar">Escolher adicionais</button></div>';
+      return h + barra();
+    }
+    if (u.t === 'poke') {
+      h += '<p class="sub">' + esc(nomeSabor(CFG.SABORES, u.sabor)) + (u.vin ? ' · com vinagrete' : ' · sem vinagrete') + ' · adicionais são opcionais.</p><div class="card">';
+      var sub = function(a){ return a.por + ' · +' + brl(a.p); };
+      h += '<div class="sec">Proteínas extras <small>(até 3 de cada)</small></div>';
+      CFG.ADICIONAIS.filter(function(a){ return a.prot; }).forEach(function(a){ h += passoQtd('ad', a.k, a.nome, sub(a), u.ad[a.k] || 0, a.max); });
+      h += '<div class="sec">Outros adicionais</div>';
+      CFG.ADICIONAIS.filter(function(a){ return !a.prot && a.max > 1; }).forEach(function(a){ h += passoQtd('ad', a.k, a.nome, sub(a) + ' · até ' + a.max, u.ad[a.k] || 0, a.max); });
+      h += '<div class="opcoes" style="margin-top:12px">';
+      CFG.ADICIONAIS.filter(function(a){ return !a.prot && a.max === 1; }).forEach(function(a){ h += '<button class="chip check" aria-pressed="' + (!!u.ad[a.k]) + '" data-a="ad" data-k="' + a.k + '"><span class="dot"></span><span class="t">' + a.nome + '<small>' + sub(a) + '</small></span></button>'; });
       h += '</div><p class="nota">Kani e ajitama não são vegetarianos.</p></div>';
     } else {
       h += '<p class="sub">Onigiri R$ ' + CFG.PRECO_ONIGIRI + ',00 cada · 120 g · a folha de nori vem separada na embalagem.</p><div class="card">';
@@ -229,27 +301,38 @@ var CFG = {
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
       h += '<div class="sec">Quantidade</div><div class="passo"><button data-a="qtd" data-d="-1"' + (u.qtd <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><output>' + u.qtd + '</output><button data-a="qtd" data-d="1"' + (u.qtd >= CFG.MAX_ONIGIRI ? ' disabled' : '') + ' aria-label="Mais">+</button></div></div>';
     }
-    // próximos passos
-    var np = contar('poke'), no = contar('oni');
-    h += '<div class="acoes"><div class="tit">Quer pedir mais alguma coisa?</div>';
-    var bots = '';
-    if (np < CFG.MAX_POKES) bots += '<button class="btn sec2" data-a="novo" data-t="poke">' + (np ? 'Poke ' + (np + 1) : 'Poke') + '</button>';
-    if (no < CFG.MAX_ONI_PAGINAS) bots += '<button class="btn sec2" data-a="novo" data-t="oni">' + (no ? 'Onigiri ' + (no + 1) : 'Onigiri') + '</button>';
-    if (bots) h += '<div class="dupla">' + bots + '</div>';
-    h += '<button class="btn prim" data-a="enviar">Enviar pedido</button></div>';
-    return h + barra(i + 1);
+    return h + maisItens() + barra();
   }
 
+  function htmlAcomp(){
+    var h = '<div class="topo"><h2>Acompanhamentos</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
+    h += '<p class="sub">Para acompanhar os onigiris, em pote separado. Opcional.</p><div class="card">';
+    CFG.ACOMP.forEach(function(a){ h += passoQtd('acomp', a.k, a.nome, a.por + ' · ' + brl(a.p) + ' cada', extras.acomp[a.k] || 0, a.max); });
+    h += '</div><div class="acoes"><button class="btn prim" data-a="prox">Continuar</button></div>';
+    return h + barra();
+  }
+
+  function htmlSobremesa(){
+    var h = '<div class="topo"><h2>Sobremesa</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
+    h += '<p class="sub">Quer fechar com um docinho? Opcional.</p><div class="card">';
+    CFG.SOBREMESAS.forEach(function(s){ h += passoQtd('sob', s.k, s.nome, s.por + ' · ' + brl(s.p) + ' cada · até ' + s.max, extras.sob[s.k] || 0, s.max); });
+    h += '</div><div class="acoes"><button class="btn prim" data-a="prox">Continuar</button></div>';
+    return h + barra();
+  }
+
+  function qtdTxt(q){ return q > 1 ? q + '× ' : ''; }
   function resumoItens(){
     var l = '';
     units.forEach(function(u, i){
       if (u.t === 'poke') {
-        var ads = CFG.ADICIONAIS.filter(function(a){ return u.ad[a.k]; }).map(function(a){ return a.nome; });
+        var ads = CFG.ADICIONAIS.filter(function(a){ return u.ad[a.k]; }).map(function(a){ return qtdTxt(u.ad[a.k]) + a.nome; });
         l += '<li><b>' + titulo(i) + '</b> · ' + nomeSabor(CFG.SABORES, u.sabor) + (u.vin ? ' · com vinagrete' : ' · sem vinagrete') + (ads.length ? ' · ' + esc(ads.join(', ')) : '') + '</li>';
       } else {
         l += '<li><b>' + u.qtd + '× Onigiri</b> ' + nomeSabor(CFG.ONIGIRIS, u.sabor) + '</li>';
       }
     });
+    if (contar('oni')) CFG.ACOMP.forEach(function(a){ if (extras.acomp[a.k]) l += '<li><b>' + extras.acomp[a.k] + '× ' + esc(a.nome) + '</b> (acompanhamento)</li>'; });
+    CFG.SOBREMESAS.forEach(function(s){ if (extras.sob[s.k]) l += '<li><b>' + extras.sob[s.k] + '× ' + esc(s.nome) + '</b></li>'; });
     return l;
   }
 
@@ -259,22 +342,24 @@ var CFG = {
     units.forEach(function(u){
       if (u.t === 'poke') {
         t += CFG.PRECO_POKE;
-        CFG.ADICIONAIS.forEach(function(a){ if (u.ad[a.k]) t += a.p; });
+        CFG.ADICIONAIS.forEach(function(a){ if (u.ad[a.k]) t += a.p * u.ad[a.k]; });
       } else {
         t += u.qtd * CFG.PRECO_ONIGIRI;
       }
     });
-    return t;
+    if (contar('oni')) CFG.ACOMP.forEach(function(a){ t += a.p * (extras.acomp[a.k] || 0); });
+    CFG.SOBREMESAS.forEach(function(s){ t += s.p * (extras.sob[s.k] || 0); });
+    return Math.round(t * 100) / 100;
   }
 
   function htmlFinal(){
     var h = '<div class="topo"><h2>Quase lá</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
     h += '<div class="card"><div class="sec">Seu pedido</div><ul class="resumo">' + resumoItens() + '</ul><div class="valor">' + brl(totalPedido()) + '</div></div>';
     h += '<div class="card"><label class="campo" for="obs">Observações <small style="font-weight:600;color:var(--muted)">(opcional)</small></label><textarea id="obs" rows="3" maxlength="300">' + esc(dados.obs) + '</textarea></div>';
-    h += '<div class="avisos"><b>Avisos importantes</b><ul><li>Salmão cru (poke e onigiri de salmão): consumir no dia da retirada.</li><li>Onigiri de shimeji: contém castanha de caju e leite.</li><li>Kani e ajitama não são vegetarianos.</li><li>Leve o pedido direto para a geladeira depois da retirada.</li></ul>';
+    h += '<div class="avisos"><b>Avisos importantes</b><ul>' + CFG.AVISOS.map(function(a){ return '<li>' + esc(a) + '</li>'; }).join('') + '</ul>';
     h += '<label class="ciente" id="g-ciente"><input type="checkbox" id="ciente"' + (dados.ciente ? ' checked' : '') + '><span>Li e estou ciente dos avisos acima</span></label><div class="erro-campo" id="e-ciente">Confirme que leu os avisos.</div></div>';
     h += '<div class="acoes"><button class="btn prim" data-a="confirmar" id="btnConfirmar">Enviar pedido · ' + brl(totalPedido()) + '</button></div>';
-    return h + barra(units.length + 1);
+    return h + barra();
   }
 
   /* ---------- validação ---------- */
@@ -322,10 +407,12 @@ var CFG = {
     return t;
   }
 
+  function soPositivos(o){ var r = {}; for (var k in o) if (o[k] > 0) r[k] = o[k]; return r; }
+
   /* ---------- ações ---------- */
   function novaUnidade(t){
     units.push(t === 'poke' ? {t:'poke', sabor:null, vin:null, ad:{}} : {t:'oni', sabor:null, qtd:1});
-    ir(units.length - 1);
+    ir(primeiraTela(units.length - 1));
   }
   function linkWhats(txt, msg){
     if (!CFG.WHATSAPP) return '';
@@ -415,8 +502,10 @@ var CFG = {
       for (var k in tot) if (tot[k] > CFG.MAX_ONIGIRI) { alert('No máximo ' + CFG.MAX_ONIGIRI + ' onigiris de cada sabor. Ajuste a quantidade.'); return; }
       corpo = {
         id: idPedido, nome: dados.nome, telefone: dados.tel, obs: dados.obs, origem: origem, ciente: true,
-        pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: Object.keys(u.ad)}; }),
-        onigiris: tot
+        pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: soPositivos(u.ad)}; }),
+        onigiris: tot,
+        acompanhamentos: contar('oni') ? soPositivos(extras.acomp) : {},
+        sobremesas: soPositivos(extras.sob)
       };
     }
     ultimoCorpo = corpo;
@@ -447,7 +536,7 @@ var CFG = {
     var b = ev.target.closest('[data-a]'); if (!b || b.disabled || enviando) return;
     var a = b.getAttribute('data-a');
     lerDados();
-    var u = (typeof tela === 'number') ? units[tela] : null;
+    var iu = unidadeDe(tela), u = iu >= 0 ? units[iu] : null;
 
     if (a === 'novo') {
       if (tela === 'dados') {
@@ -458,23 +547,35 @@ var CFG = {
     }
     else if (a === 'continuar') {
       var d2 = dadosOk(); $('g-nome').classList.toggle('tem-erro', !d2.nome); $('g-tel').classList.toggle('tem-erro', !d2.tel);
-      if (d2.ok) ir(units.length - 1);
+      if (d2.ok) ir(primeiraTela(units.length - 1));
     }
-    else if (a === 'voltar') { ir(tela === 'final' ? units.length - 1 : (tela > 0 ? tela - 1 : 'dados')); }
+    else if (a === 'voltar') { var ps = passos(), at = ps.indexOf(tela); ir(at > 0 ? ps[at - 1] : 'dados'); }
     else if (a === 'remover') {
-      units.splice(tela, 1);
-      ir(units.length ? Math.min(tela, units.length - 1) : 'dados');
+      units.splice(iu, 1);
+      ir(units.length ? primeiraTela(Math.min(iu, units.length - 1)) : 'dados');
     }
     else if (a === 'sabor') { u.sabor = b.getAttribute('data-k'); render(); }
     else if (a === 'vin') { u.vin = (b.getAttribute('data-k') === 'true'); render(); }
-    else if (a === 'ad') { var k = b.getAttribute('data-k'); if (u.ad[k]) delete u.ad[k]; else u.ad[k] = true; render(); }
-    else if (a === 'qtd') { u.qtd = Math.max(1, Math.min(CFG.MAX_ONIGIRI, u.qtd + (+b.getAttribute('data-d')))); render(); }
-    else if (a === 'enviar') {
-      if (!unidadeOk(u)) { mostrarErrosUnidade(u); return; }
-      var ruim = primeiraInvalida();
-      if (ruim >= 0) { ir(ruim); setTimeout(function(){ mostrarErrosUnidade(units[ruim]); }, 50); return; }
-      ir('final');
+    else if (a === 'avancar') { if (!unidadeOk(u)) { mostrarErrosUnidade(u); return; } ir('u' + iu + 'b'); }
+    else if (a === 'ad') { var k = b.getAttribute('data-k'); if (u.ad[k]) delete u.ad[k]; else u.ad[k] = 1; render(); }
+    else if (a === 'q') {
+      // − / + dos adicionais com quantidade, acompanhamentos e sobremesa
+      var g = b.getAttribute('data-g'), kq = b.getAttribute('data-k');
+      var lista = g === 'ad' ? CFG.ADICIONAIS : g === 'acomp' ? CFG.ACOMP : CFG.SOBREMESAS;
+      var alvo = g === 'ad' ? u.ad : extras[g];
+      var item = lista.filter(function(x){ return x.k === kq; })[0]; if (!item || !alvo) return;
+      var nq = Math.max(0, Math.min(item.max, (alvo[kq] || 0) + (+b.getAttribute('data-d'))));
+      if (nq) alvo[kq] = nq; else delete alvo[kq];
+      render();
     }
+    else if (a === 'qtd') { u.qtd = Math.max(1, Math.min(CFG.MAX_ONIGIRI, u.qtd + (+b.getAttribute('data-d')))); render(); }
+    else if (a === 'seguir') {
+      if (u && !unidadeOk(u)) { mostrarErrosUnidade(u); return; }
+      var ruim = primeiraInvalida();
+      if (ruim >= 0) { ir(primeiraTela(ruim)); setTimeout(function(){ mostrarErrosUnidade(units[ruim]); }, 50); return; }
+      ir(depoisDosItens());
+    }
+    else if (a === 'prox') { var ps2 = passos(); ir(ps2[ps2.indexOf(tela) + 1] || 'final'); }
     else if (a === 'confirmar') {
       var okc = dados.ciente; $('e-ciente').style.display = okc ? 'none' : 'block';
       if (!okc) { $('g-ciente').scrollIntoView({behavior:'smooth', block:'center'}); return; }
