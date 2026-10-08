@@ -224,10 +224,20 @@ var CFG = {
     if (forcar) agora = new Date(CFG.ABRE.getTime() + 60000);
     if (agora >= CFG.FECHA) { mostrarEstado('<h2>Pedidos encerrados</h2><p>Os pedidos desta retirada já foram encerrados. Fique de olho no nosso Instagram para a próxima!</p>'); return; }
     if (agora < CFG.ABRE) { mostrarEstado('<h2>Pedidos abrem em breve</h2><p>Os pedidos abrem <b>' + fmtDia(CFG.ABRE) + ', às ' + fmtHora(CFG.ABRE) + '</b>. Volte aqui nesse horário!</p>'); return; }
-    // A página abre na hora (o serviço do Google pode demorar na primeira chamada). O "ping" só acorda o
-    // serviço enquanto o cliente preenche os dados; se o formulário estiver fechado, o envio avisa.
-    $('carregando').hidden = true; $('tela').hidden = false; render();
-    try { fetch(CFG.API_URL + '?acao=ping').catch(function(){}); } catch(e){}
+    // Pergunta ao serviço se o formulário está aceitando pedidos ANTES de mostrar os campos de nome e telefone.
+    // Se o serviço demorar mais de 8 s (primeira chamada do Google), abre mesmo assim e o envio avisa se estiver fechado.
+    var decidido = false;
+    function abrir(){ if (decidido) return; decidido = true; $('carregando').hidden = true; $('tela').hidden = false; render(); }
+    function fechado(){
+      decidido = true;
+      mostrarEstado('<h2>Pedidos encerrados</h2><p>Esgotamos a produção deste sábado! 🙏 Obrigado pelo carinho. Fique de olho no nosso Instagram para a próxima rodada.</p>');
+    }
+    setTimeout(abrir, 8000);
+    try {
+      fetch(CFG.API_URL + '?acao=estado').then(function(r){ return r.json(); }).then(function(j){
+        if (j && j.ok === true && j.aberto === false) { if (!enviando) fechado(); } else abrir();
+      }).catch(abrir);
+    } catch(e){ abrir(); }
   }
 
   /* ---------- telas ---------- */
