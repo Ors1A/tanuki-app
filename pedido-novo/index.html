@@ -193,6 +193,7 @@ var CFG = {
   var enviando = false;
   // Modo complemento: {ref, tel, info} depois de achar o pedido (número + telefone). null = pedido novo.
   var modo = null, idComp = null, ultimaRes = null;
+  var pendRef = '', substituiRef = '';   // pedido ainda não pago do mesmo telefone / pedido que o novo vai substituir
   var retirada = '';   // texto da retirada, da aba Configuração (via ?acao=cardapio)
   function frase(){ return retirada ? 'Retirada: <b>' + esc(retirada) + '</b>.' : 'Combinaremos a retirada com você pelo WhatsApp.'; }
   var refPre = (new URLSearchParams(location.search).get('complemento') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
@@ -522,6 +523,7 @@ var CFG = {
       .then(function(r){ return r.json(); })
       .then(function(j){
         clearTimeout(t); enviando = false;
+        if (j && j.ok === true && j.pendente) { dados.tel = tel; pendente({pendente: {ref: j.ref, total: j.total, data: ''}}); return; }
         if (j && j.ok === true) {
           modo = {ref: j.ref, tel: tel, info: j};
           idComp = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.random().toString(36).slice(2));
@@ -529,6 +531,40 @@ var CFG = {
         } else erro((j && j.mensagem) || 'Não encontramos esse pedido. Confira o número e o telefone.');
       })
       .catch(function(){ clearTimeout(t); enviando = false; erro('Não conseguimos consultar agora. Tente de novo.'); });
+  }
+  // Devolve ao formulário o que o cliente tinha escolhido (vem do serviço, nos mesmos nomes que a página usa).
+  function carregarCorpo(c){
+    c = c || {};
+    units = [];
+    (c.pokes || []).forEach(function(b){ units.push({t:'poke', sabor:b.sabor, vin:b.vinagrete === true, ad: soPositivos(b.adicionais || {})}); });
+    var on = c.onigiris || {};
+    Object.keys(on).forEach(function(k){ if (on[k] > 0) units.push({t:'oni', sabor:k, qtd:+on[k]}); });
+    extras = {acomp: soPositivos(c.acompanhamentos || {}), sob: soPositivos(c.sobremesas || {})};
+    dados.nome = c.nome || dados.nome; dados.tel = c.telefone || dados.tel; dados.obs = c.obs || ''; dados.ciente = false;
+    modo = null;
+    idPedido = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('p' + Date.now() + Math.random().toString(36).slice(2));
+    try { sessionStorage.setItem('tanuki_id_pedido', idPedido); } catch(e){}
+  }
+  function retomarServico(ref, tel, ok){
+    enviando = true;
+    var ctl = new AbortController(), t = setTimeout(function(){ ctl.abort(); }, 40000);
+    fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'retomar', ref: ref, telefone: tel}), signal: ctl.signal})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        clearTimeout(t); enviando = false;
+        if (j && j.ok === true) ok(j); else alert((j && j.mensagem) || 'Não foi possível voltar ao pagamento agora.');
+      })
+      .catch(function(){ clearTimeout(t); enviando = false; alert('Não conseguimos agora. Tente de novo.'); });
+  }
+  // Há um pedido do mesmo telefone que ainda não foi pago: voltar ao pagamento, alterar ou fazer outro.
+  function pendente(j){
+    enviando = false;
+    pendRef = j.pendente.ref;
+    $('tela').innerHTML = '<div class="msg aviso"><h2>Você tem um pedido aguardando pagamento</h2><p>Encontramos um pedido de <b>' + brl(Number(j.pendente.total)) + '</b>' + (j.pendente.data ? ' feito em ' + esc(j.pendente.data) : '') + ' que ainda não foi pago. Ele só é registrado depois do pagamento. O que você quer fazer?</p>' +
+      '<button class="btn prim" style="margin-top:14px" data-a="retomarpag">Voltar ao pagamento</button>' +
+      '<button class="btn sec2" style="margin-top:10px" data-a="retomaralt">Alterar esse pedido</button>' +
+      (ultimoCorpo ? '<button class="btn sec2" style="margin-top:10px" data-a="outro">Fazer outro pedido mesmo assim</button>' : '') + '</div>';
+    window.scrollTo({top: 0, behavior: 'smooth'});
   }
   // Já existe pedido no mesmo nome ou telefone: pede confirmação antes de gravar um segundo pedido.
   function existente(j){
@@ -661,7 +697,7 @@ var CFG = {
     enviando = false;
     var total = Number(res.total);
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
-    ultimaRes = res;
+    ultimaRes = res; substituiRef = '';
     try { sessionStorage.setItem('tanuki_ref_pend', res.ref); } catch(e){}
     $('tela').innerHTML = '<div class="msg ok"><h2>Estamos quase lá!</h2><p><b>Falta só o pagamento.</b> ' + (modo ? 'Seu complemento' : 'Seu pedido') + ' só é registrado quando o pagamento for confirmado.</p>' +
       '<div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) +
@@ -686,6 +722,7 @@ var CFG = {
         acompanhamentos: contar('oni') ? soPositivos(extras.acomp) : {},
         sobremesas: soPositivos(extras.sob)
       };
+      if (substituiRef && !modo) corpo.substitui = substituiRef;
       if (modo) { delete corpo.nome; corpo.acao = 'complemento'; corpo.ref = modo.ref; corpo.telefone = modo.tel; corpo.id = idComp; corpo.origem = 'complemento'; }
     }
     ultimoCorpo = corpo;
@@ -704,6 +741,7 @@ var CFG = {
           if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
           if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
           if (j && j.codigo === 'existente') { existente(j); return; }
+          if (j && j.codigo === 'pendente') { pendente(j); return; }
           if (j && (j.codigo === 'limite' || j.codigo === 'conflito' || j.codigo === 'prazo' || j.codigo === 'complemento' || j.codigo === 'nao_encontrado' || j.codigo === 'bloqueado')) { recusado(j.mensagem); return; }
           if (j && j.codigo === 'ocupado' && n < 3) { tentar(n + 1); return; }
           falhaEnvio(false);
@@ -763,6 +801,14 @@ var CFG = {
       enviarPedido();
     }
     else if (a === 'tentar') { ir('final'); }
+    else if (a === 'retomarpag') { retomarServico(pendRef, dados.tel, function(j){ carregarCorpo(j.corpo); sucesso(j); }); }
+    else if (a === 'retomaralt') {
+      retomarServico(pendRef, dados.tel, function(j){
+        if (!j.corpo) { alert('Este pedido é grande demais para alterar aqui. Volte ao pagamento ou fale com a gente pelo WhatsApp.'); return; }
+        carregarCorpo(j.corpo); substituiRef = j.ref; ir('final');
+      });
+    }
+    else if (a === 'outro') { ultimoCorpo.ignorarPendente = true; enviarPedido(true); }
     else if (a === 'segundo') { ultimoCorpo.segundoPedido = true; enviarPedido(true); }
     else if (a === 'acessar') { ir('acesso'); }
     else if (a === 'voltardados') { modo = null; refPre = ''; ir('dados'); }
