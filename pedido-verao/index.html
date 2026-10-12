@@ -96,7 +96,7 @@ input:focus,textarea:focus{border-color:var(--accent)}
   <div class="hero"><img src="banner.jpg" alt="Tanuki Ramen - Verão no Havaí" width="1200" height="300"></div>
   <div class="intro"><div class="wrap" style="padding:0">
     <h1>Cardápio de Verão</h1>
-    <p>Onigiri e Poke do Tanuki Ramen.<br>📍 Retirada no sábado, <b>10/10, às 19h15</b>, na XV de Novembro, 68 (em cima da casa da moda).</p>
+    <p>Onigiri e Poke do Tanuki Ramen.<span id="retirada-topo"></span></p>
   </div></div>
 </header>
 <main class="wrap"><div id="carregando" class="carregando">Carregando…</div><div id="tela" hidden></div></main>
@@ -104,17 +104,32 @@ input:focus,textarea:focus{border-color:var(--accent)}
 <script>
 /* ========= CONFIGURAÇÃO (única parte para editar) ========= */
 var CFG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbz9YNL4BivUIfixz-pNwlS4hacq6S-ChVfRZgQoF30-yaLTsLQbmUimbA44Rx6TZ2RNTQ/exec',
+  // Sistema novo (serviço "Tanuki - Sistema novo (servico)", cobrança pelo PicPay). RASCUNHO: ainda não publicado.
+  API_URL: 'https://script.google.com/macros/s/AKfycbx2KKFl2p3aC6wfNwr5xXJqieUsOegznbeyn7Uz33JJuPd4YkLKkL0HBnUUtYMUUsE7/exec',
   FORMS_URL: 'https://docs.google.com/forms/d/e/1FAIpQLSdhe-UDoFvFDKVo3W6qhrBZdojULVRSAbPEYKPa4W9TVk6k5w/viewform',
   FORMS_ORIGEM_ENTRY: 'entry.1429552709',
   // Pix copia e cola. Enquanto "chave" estiver vazia, a tela de confirmação mostra só
   // "Entraremos em contato para o pagamento". titular = nome como aparece no app do banco.
   PIX: { chave: '56064358000132', titular: 'Arthur Orsi Consultoria', cidade: 'SAO MIGUEL DO OESTE' },
   WHATSAPP: '5549998120435',   // número que recebe o comprovante, só dígitos com 55 + DDD, ex.: 5549999999999
-  ABRE: new Date('2026-10-05T18:30:00-03:00'),   // segunda, 18h30
-  FECHA: new Date('2026-10-10T05:00:00-03:00'),  // sábado, 5h
-  PRECO_POKE: 55, PRECO_ONIGIRI: 13, MAX_POKES: 5, MAX_ONI_PAGINAS: 3, MAX_ONIGIRI: 10,
-  // Preços, chaves e máximos precisam bater com o serviço (PV): o teste automático confere.
+  // Aberto/fechado, leva e PREÇOS vêm da planilha (serviço ?acao=cardapio), a cada abertura da página.
+  // Aqui ficam só os textos e os nomes oficiais da aba Produtos (têm que bater com ST no serviço).
+  // Item que não estiver ativo na planilha some da página.
+  MAX_POKES: 5, MAX_ONI_PAGINAS: 3, MAX_ONIGIRI: 10,
+  NOMES: {
+    SABORES: { salmao: 'Poke Salmao', apimentado: 'Poke Apimentado (atum)', vegetariano: 'Poke Vegetariano' },
+    ONIGIRIS: { salmao: 'Onigiri Salmao', tuna: 'Onigiri Tuna Mayo', shimeji: 'Onigiri Shimeji' },
+    ACOMP: { sunomono: 'Sunomono', repolho: 'Mix de Repolho com Goma Dare' },
+    SOBREMESAS: { pudim: 'Pudim de Matcha' },
+    ADICIONAIS: {
+      salmao: 'Salmao marinado', atum: 'Atum cozido com maionese', shimejitofu: 'Shimeji + Tofu',
+      tofu: 'Tofu marinado', shimeji: 'Shimeji', arroz: 'Arroz extra', sunomono: 'Sunomono',
+      repolho: 'Mix de Repolho com Goma Dare', gomadare: 'Goma dare (molho de gergelim)', manga: 'Manga',
+      cenoura: 'Cenoura', kani: 'Kani (nao vegetariano)', palmito: 'Palmito pupunha', castanha: 'Castanha de caju',
+      creamcheese: 'Cream cheese', gari: 'Gari (gengibre em conserva)', nori: 'Nori', avocado: 'Avocado',
+      ajitama: 'Ajitama (ovo marinado, nao vegetariano)'
+    }
+  },
   SABORES: [
     {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu e gergelim', peso:'~435 g'},
     {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha da casa', peso:'~425 g'},
@@ -176,6 +191,12 @@ var CFG = {
   // Telas: 'dados' | 'u<i>a' (poke: sabor) | 'u<i>b' (poke: adicionais) | 'u<i>' (onigiri) | 'acomp' | 'sob' | 'final'
   var tela = 'dados';
   var enviando = false;
+  // Modo complemento: {ref, tel, info} depois de achar o pedido (número + telefone). null = pedido novo.
+  var modo = null, idComp = null, ultimaRes = null;
+  var pendRef = '', substituiRef = '';   // pedido ainda não pago do mesmo telefone / pedido que o novo vai substituir
+  var retirada = '';   // texto da retirada, da aba Configuração (via ?acao=cardapio)
+  function frase(){ return retirada ? 'Retirada: <b>' + esc(retirada) + '</b>.' : 'Combinaremos a retirada com você pelo WhatsApp.'; }
+  var refPre = (new URLSearchParams(location.search).get('complemento') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
   var idPedido = null;
   try { idPedido = sessionStorage.getItem('tanuki_id_pedido'); } catch(e){}
   if (!idPedido) {
@@ -185,6 +206,12 @@ var CFG = {
 
   function brl(n){ return 'R$ ' + n.toFixed(2).replace('.', ','); }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function precoDe(lista, k){ var r = lista.filter(function(x){ return x.k === k; })[0]; return r ? r.p : 0; }
+  // "Poke R$ 55,00" (ou "a partir de R$ 55,00" se os sabores tiverem preços diferentes)
+  function textoPreco(lista, rotulo){
+    var ps = lista.map(function(x){ return x.p; }), min = Math.min.apply(null, ps), max = Math.max.apply(null, ps);
+    return rotulo + (min === max ? ' ' : ' a partir de ') + brl(min);
+  }
   function nomeSabor(lista, k){ var r = lista.filter(function(x){ return x.k === k; })[0]; return r ? r.nome : ''; }
   function contar(t){ return units.filter(function(u){ return u.t === t; }).length; }
   function numero(i){ var t = units[i].t, n = 0; for (var j = 0; j <= i; j++) if (units[j].t === t) n++; return n; }
@@ -194,7 +221,7 @@ var CFG = {
   function unidadeDe(t){ var m = /^u(\d+)/.exec(String(t)); return m ? +m[1] : -1; }
   function primeiraTela(i){ return units[i].t === 'poke' ? 'u' + i + 'a' : 'u' + i; }
   function passos(){
-    var p = ['dados'];
+    var p = [modo ? 'comp' : 'dados'];
     units.forEach(function(u, i){ if (u.t === 'poke') p.push('u' + i + 'a', 'u' + i + 'b'); else p.push('u' + i); });
     if (contar('oni')) p.push('acomp');
     p.push('sob', 'final');
@@ -214,36 +241,57 @@ var CFG = {
     var e = $('tela'); e.hidden = false;
     e.innerHTML = '<div class="msg ' + (cls || 'aviso') + '">' + html + '</div>';
   }
-  function fmtDia(d){ return d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'}); }
-  function fmtHora(d){ return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}).replace(':','h'); }
+
+  // Aplica o cardápio da planilha: preço de cada item e remove o que não está ativo.
+  function aplicarCardapio(j){
+    var preco = {};
+    j.itens.forEach(function(it){ preco[it.nome] = Number(it.preco); });
+    function aplica(lista, nomes){
+      return lista.filter(function(x){ return nomes[x.k] && preco.hasOwnProperty(nomes[x.k]); })
+                  .map(function(x){ x.p = preco[nomes[x.k]]; return x; });
+    }
+    CFG.SABORES = aplica(CFG.SABORES, CFG.NOMES.SABORES);
+    CFG.ONIGIRIS = aplica(CFG.ONIGIRIS, CFG.NOMES.ONIGIRIS);
+    CFG.ACOMP = aplica(CFG.ACOMP, CFG.NOMES.ACOMP);
+    CFG.SOBREMESAS = aplica(CFG.SOBREMESAS, CFG.NOMES.SOBREMESAS);
+    CFG.ADICIONAIS = aplica(CFG.ADICIONAIS, CFG.NOMES.ADICIONAIS);
+  }
 
   function carregar(){
-    var agora = new Date();
-    // ?forcar=1 só pula o relógio da página (para testes); quem manda é o serviço, que recusa se o formulário estiver fechado.
-    var forcar = new URLSearchParams(location.search).get('forcar') === '1';
-    if (forcar) agora = new Date(CFG.ABRE.getTime() + 60000);
-    if (agora >= CFG.FECHA) { mostrarEstado('<h2>Pedidos encerrados</h2><p>Os pedidos desta retirada já foram encerrados. Fique de olho no nosso Instagram para a próxima!</p>'); return; }
-    if (agora < CFG.ABRE) { mostrarEstado('<h2>Pedidos abrem em breve</h2><p>Os pedidos abrem <b>' + fmtDia(CFG.ABRE) + ', às ' + fmtHora(CFG.ABRE) + '</b>. Volte aqui nesse horário!</p>'); return; }
-    // Pergunta ao serviço se o formulário está aceitando pedidos ANTES de mostrar os campos de nome e telefone.
-    // Se o serviço demorar mais de 8 s (primeira chamada do Google), abre mesmo assim e o envio avisa se estiver fechado.
+    // Quem manda é a planilha: o serviço devolve se a leva está aberta e os itens ativos com preço.
+    // Sem cardápio não abrimos a página (evita mostrar preço velho).
     var decidido = false;
-    function abrir(){ if (decidido) return; decidido = true; $('carregando').hidden = true; $('tela').hidden = false; render(); }
-    function fechado(){
-      decidido = true;
-      mostrarEstado('<h2>Pedidos encerrados</h2><p>Esgotamos a produção deste sábado! 🙏 Obrigado pelo carinho. Fique de olho no nosso Instagram para a próxima rodada.</p>');
+    function falhou(){
+      if (decidido) return; decidido = true;
+      mostrarEstado('<h2>Não conseguimos carregar o cardápio</h2><p>Tente de novo em instantes.</p><button class="btn prim" style="margin-top:14px" onclick="location.reload()">Tentar de novo</button>' +
+        '<p class="nota" style="margin-top:14px">Se continuar assim, fale com a gente no WhatsApp.</p>', 'falha');
     }
-    setTimeout(abrir, 8000);
+    var limite = setTimeout(falhou, 15000);   // primeira chamada do Google pode demorar
     try {
-      fetch(CFG.API_URL + '?acao=estado').then(function(r){ return r.json(); }).then(function(j){
-        if (j && j.ok === true && j.aberto === false) { if (!enviando) fechado(); } else abrir();
-      }).catch(abrir);
-    } catch(e){ abrir(); }
+      fetch(CFG.API_URL + '?acao=cardapio').then(function(r){ return r.json(); }).then(function(j){
+        if (decidido) return;
+        clearTimeout(limite);
+        if (!j || j.ok !== true || !Array.isArray(j.itens)) { falhou(); return; }
+        decidido = true;
+        if (j.aberto === false) {
+          mostrarEstado('<h2>Pedidos encerrados</h2><p>No momento não estamos aceitando pedidos. Fique de olho no nosso Instagram para a próxima rodada! 🙏</p>');
+          return;
+        }
+        aplicarCardapio(j);
+        retirada = String(j.retirada || '');
+        if (retirada && $('retirada-topo')) $('retirada-topo').innerHTML = '<br>📍 Retirada: ' + esc(retirada) + '.';
+        if (refPre) tela = 'acesso';
+        $('carregando').hidden = true; $('tela').hidden = false; render();
+      }).catch(function(){ clearTimeout(limite); falhou(); });
+    } catch(e){ clearTimeout(limite); falhou(); }
   }
 
   /* ---------- telas ---------- */
   function render(){
     var el = $('tela');
     if (tela === 'dados') el.innerHTML = htmlDados();
+    else if (tela === 'acesso') el.innerHTML = htmlAcesso();
+    else if (tela === 'comp') el.innerHTML = htmlComp();
     else if (tela === 'final') el.innerHTML = htmlFinal();
     else if (tela === 'acomp') el.innerHTML = htmlAcomp();
     else if (tela === 'sob') el.innerHTML = htmlSobremesa();
@@ -264,6 +312,46 @@ var CFG = {
     h += '<div class="acoes"><div class="tit">' + (units.length ? 'Seu pedido tem ' + units.length + (units.length === 1 ? ' item. Continue ou adicione:' : ' itens. Continue ou adicione:') : 'O que você quer pedir?') + '</div>';
     if (units.length) h += '<button class="btn escuro" data-a="continuar">Continuar pedido</button>';
     h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div></div>';
+    h += '<p class="nota" style="margin-top:18px;text-align:center">Já fez um pedido? <button class="link" data-a="acessar">Ver ou adicionar itens</button></p>';
+    return h;
+  }
+
+  // Acesso a um pedido já feito: número + telefone (o telefone nunca vai na URL).
+  function htmlAcesso(){
+    var h = '<div class="topo"><h2>Seu pedido</h2></div><button class="link" data-a="voltardados" style="padding-left:0">← Voltar</button>';
+    h += '<div class="card"><div class="campo-grupo"><label class="campo" for="refc">Número do pedido</label><input id="refc" type="text" autocapitalize="characters" placeholder="TNK..." maxlength="12" value="' + esc(refPre) + '"></div>';
+    h += '<div class="campo-grupo" id="g-tel"><label class="campo" for="tel">Telefone usado no pedido</label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(49) 99999-9999" maxlength="20" value="' + esc(dados.tel) + '"></div>';
+    h += '<div class="erro-campo" id="erro-acesso" style="display:none"></div>';
+    h += '<p class="nota">O número do pedido aparece na confirmação (começa com TNK).</p></div>';
+    h += '<div class="acoes"><button class="btn prim" data-a="consultar">Ver meu pedido</button></div>';
+    return h;
+  }
+
+  // Pedido já feito: o que foi pedido, o que já foi pago e (se der) o botão para acrescentar itens.
+  function htmlComp(){
+    var i = modo.info, h = '<div class="topo"><h2>Pedido ' + esc(i.ref) + '</h2></div><button class="link" data-a="voltardados" style="padding-left:0">← Sair</button>';
+    var li = '';
+    i.itens.forEach(function(x){ li += '<li><b>' + x.qtd + '× ' + esc(x.nome) + '</b></li>'; });
+    i.adicionais.forEach(function(x){ li += '<li>+ ' + x.qtd + '× ' + esc(x.nome) + ' <small>(' + esc(x.em) + ')</small></li>'; });
+    h += '<div class="card"><div class="sec">O que você pediu</div><ul class="resumo">' + li + '</ul><div class="valor">' + brl(i.total) + '</div>';
+    h += '<p class="nota">Pagamento: <b>' + (String(i.status).indexOf('aprovado') === 0 ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
+    if (i.complementos.length) {
+      h += '<div class="card"><div class="sec">Complementos</div><ul class="resumo">';
+      i.complementos.forEach(function(c){ h += '<li><b>' + esc(c.ref) + '</b> · ' + brl(c.total) + ' · ' + (String(c.status).indexOf('aprovado') === 0 ? 'pago' : esc(c.status)) + '</li>'; });
+      h += '</ul></div>';
+    }
+    if (i.podeComplementar) {
+      h += '<div class="acoes"><div class="tit">' + (units.length ? 'Itens novos: ' + units.length + '. Continue ou adicione:' : 'Adicionar itens (pagos à parte)') + '</div>';
+      if (units.length) h += '<button class="btn escuro" data-a="continuarc">Continuar</button>';
+      h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div>';
+      if (i.ate) h += '<p class="nota">Dá para adicionar itens até ' + esc(i.ate) + '.</p>';
+      h += '</div>';
+    } else if (String(i.status).indexOf('aprovado') !== 0) {
+      h += '<div class="msg aviso"><p>O pagamento ainda não foi confirmado. Assim que ele for confirmado, você poderá adicionar itens aqui.</p><button class="btn sec2" style="margin-top:10px" data-a="atualizar">Já paguei, atualizar</button></div>';
+    } else {
+      h += '<div class="msg aviso"><p>' + (i.prazo ? 'Este pedido já tem o máximo de complementos.' : 'O prazo para adicionar itens acabou.') + ' Para alterações, fale com a gente pelo WhatsApp.</p>' +
+        linkWhats('Falar com a gente no WhatsApp', 'Olá! Quero alterar o pedido ' + i.ref + '.') + '</div>';
+    }
     return h;
   }
 
@@ -283,7 +371,7 @@ var CFG = {
     h += '<div class="topo"><h2>' + titulo(i) + (parteB ? ' · adicionais' : '') + '</h2><button class="link rem" data-a="remover">Remover</button></div>';
     h += '<button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
     if (u.t === 'poke' && !parteB) {
-      h += '<p class="sub">Poke R$ ' + CFG.PRECO_POKE + ',00 · molhos e vinagrete vão em pote separado.</p><div class="card">';
+      h += '<p class="sub">' + textoPreco(CFG.SABORES, 'Poke') + ' · molhos e vinagrete vão em pote separado.</p><div class="card">';
       h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
       CFG.SABORES.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + ' · bowl de ' + s.peso + '</small></span></button>'; });
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
@@ -305,7 +393,7 @@ var CFG = {
       CFG.ADICIONAIS.filter(function(a){ return !a.prot && a.max === 1; }).forEach(function(a){ h += '<button class="chip check" aria-pressed="' + (!!u.ad[a.k]) + '" data-a="ad" data-k="' + a.k + '"><span class="dot"></span><span class="t">' + a.nome + '<small>' + sub(a) + '</small></span></button>'; });
       h += '</div><p class="nota">Kani e ajitama não são vegetarianos.</p></div>';
     } else {
-      h += '<p class="sub">Onigiri R$ ' + CFG.PRECO_ONIGIRI + ',00 cada · 120 g · a folha de nori vem separada na embalagem.</p><div class="card">';
+      h += '<p class="sub">' + textoPreco(CFG.ONIGIRIS, 'Onigiri') + ' cada · 110 g · a folha de nori vem separada na embalagem.</p><div class="card">';
       h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
       CFG.ONIGIRIS.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + '</small></span></button>'; });
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
@@ -351,10 +439,10 @@ var CFG = {
     var t = 0;
     units.forEach(function(u){
       if (u.t === 'poke') {
-        t += CFG.PRECO_POKE;
+        t += precoDe(CFG.SABORES, u.sabor);
         CFG.ADICIONAIS.forEach(function(a){ if (u.ad[a.k]) t += a.p * u.ad[a.k]; });
       } else {
-        t += u.qtd * CFG.PRECO_ONIGIRI;
+        t += u.qtd * precoDe(CFG.ONIGIRIS, u.sabor);
       }
     });
     if (contar('oni')) CFG.ACOMP.forEach(function(a){ t += a.p * (extras.acomp[a.k] || 0); });
@@ -428,6 +516,65 @@ var CFG = {
     if (!CFG.WHATSAPP) return '';
     return '<a class="btn sec2" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/' + CFG.WHATSAPP + '?text=' + encodeURIComponent(msg) + '">' + txt + '</a>';
   }
+  // Consulta o pedido (número + telefone). Em caso de sucesso entra no modo complemento.
+  function consultarPedido(ref, tel, erro){
+    var ctl = new AbortController(), t = setTimeout(function(){ ctl.abort(); }, 30000);
+    fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'consultar', ref: ref, telefone: tel}), signal: ctl.signal})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        clearTimeout(t); enviando = false;
+        if (j && j.ok === true && j.pendente) { dados.tel = tel; pendente({pendente: {ref: j.ref, total: j.total, data: ''}}); return; }
+        if (j && j.ok === true) {
+          modo = {ref: j.ref, tel: tel, info: j};
+          idComp = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.random().toString(36).slice(2));
+          ir('comp');
+        } else erro((j && j.mensagem) || 'Não encontramos esse pedido. Confira o número e o telefone.');
+      })
+      .catch(function(){ clearTimeout(t); enviando = false; erro('Não conseguimos consultar agora. Tente de novo.'); });
+  }
+  // Devolve ao formulário o que o cliente tinha escolhido (vem do serviço, nos mesmos nomes que a página usa).
+  function carregarCorpo(c){
+    c = c || {};
+    units = [];
+    (c.pokes || []).forEach(function(b){ units.push({t:'poke', sabor:b.sabor, vin:b.vinagrete === true, ad: soPositivos(b.adicionais || {})}); });
+    var on = c.onigiris || {};
+    Object.keys(on).forEach(function(k){ if (on[k] > 0) units.push({t:'oni', sabor:k, qtd:+on[k]}); });
+    extras = {acomp: soPositivos(c.acompanhamentos || {}), sob: soPositivos(c.sobremesas || {})};
+    dados.nome = c.nome || dados.nome; dados.tel = c.telefone || dados.tel; dados.obs = c.obs || ''; dados.ciente = false;
+    modo = null;
+    idPedido = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('p' + Date.now() + Math.random().toString(36).slice(2));
+    try { sessionStorage.setItem('tanuki_id_pedido', idPedido); } catch(e){}
+  }
+  function retomarServico(ref, tel, ok){
+    enviando = true;
+    var ctl = new AbortController(), t = setTimeout(function(){ ctl.abort(); }, 40000);
+    fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'retomar', ref: ref, telefone: tel}), signal: ctl.signal})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        clearTimeout(t); enviando = false;
+        if (j && j.ok === true) ok(j); else alert((j && j.mensagem) || 'Não foi possível voltar ao pagamento agora.');
+      })
+      .catch(function(){ clearTimeout(t); enviando = false; alert('Não conseguimos agora. Tente de novo.'); });
+  }
+  // Há um pedido do mesmo telefone que ainda não foi pago: voltar ao pagamento, alterar ou fazer outro.
+  function pendente(j){
+    enviando = false;
+    pendRef = j.pendente.ref;
+    $('tela').innerHTML = '<div class="msg aviso"><h2>Você tem um pedido aguardando pagamento</h2><p>Encontramos um pedido de <b>' + brl(Number(j.pendente.total)) + '</b>' + (j.pendente.data ? ' feito em ' + esc(j.pendente.data) : '') + ' que ainda não foi pago. Ele só é registrado depois do pagamento. O que você quer fazer?</p>' +
+      '<button class="btn prim" style="margin-top:14px" data-a="retomarpag">Voltar ao pagamento</button>' +
+      '<button class="btn sec2" style="margin-top:10px" data-a="retomaralt">Alterar esse pedido</button>' +
+      (ultimoCorpo ? '<button class="btn sec2" style="margin-top:10px" data-a="outro">Fazer outro pedido mesmo assim</button>' : '') + '</div>';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+  // Já existe pedido no mesmo nome ou telefone: pede confirmação antes de gravar um segundo pedido.
+  function existente(j){
+    enviando = false;
+    $('tela').innerHTML = '<div class="msg aviso"><h2>Já existe um pedido</h2><p>Já existe um pedido em nome de <b>' + esc(dados.nome.trim()) + '</b> para <b>' + esc((j.existente && j.existente.data) || '') + '</b>. Você está ciente disso e quer fazer um <b>segundo pedido</b>?</p>' +
+      '<button class="btn prim" style="margin-top:14px" data-a="segundo">Sim, quero fazer outro pedido</button>' +
+      '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Não, voltar</button>' +
+      '<p class="nota" style="margin-top:14px">Quer só acrescentar itens ao pedido que já fez? <button class="link" data-a="acessar">Ver ou adicionar itens</button></p></div>';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
   function falhaEnvio(incerto){
     enviando = false;
     var h;
@@ -447,8 +594,8 @@ var CFG = {
   // Pedido recusado pelo limite por telefone/nome ou por conflito com um pedido já enviado.
   function recusado(msg){
     enviando = false;
-    $('tela').innerHTML = '<div class="msg aviso"><h2>Já temos um pedido seu</h2><p>' + esc(msg) + '</p>' +
-      linkWhats('Falar com a gente no WhatsApp', 'Olá! Já fiz um pedido e quero alterar. Nome: ' + dados.nome.trim() + '.') +
+    $('tela').innerHTML = '<div class="msg aviso"><h2>' + (modo ? 'Não foi possível adicionar' : 'Já temos um pedido seu') + '</h2><p>' + esc(msg) + '</p>' +
+      linkWhats('Falar com a gente no WhatsApp', modo ? 'Olá! Quero alterar o pedido ' + modo.ref + '.' : 'Olá! Já fiz um pedido e quero alterar. Nome: ' + dados.nome.trim() + '.') +
       '<button class="btn sec2" style="margin-top:10px" data-a="tentar">Voltar ao pedido</button></div>';
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
@@ -472,7 +619,28 @@ var CFG = {
     p += '6304';
     return p + crc16(p);
   }
+  // Sistema novo: o serviço devolve a cobrança do PicPay (pixCopiaCola + pagamento = link da página do PicPay).
+  // Pix em destaque (sem cadastro nem endereço); cartão como segunda opção, na página do PicPay.
+  // O pagamento é confirmado sozinho (aviso do PicPay), sem comprovante.
+  function htmlPagamentoPicPay(res, total){
+    var link = /^https:\/\/link\.(picpay\.com|ppay\.me)\//.test(String(res.pagamento || '')) ? String(res.pagamento) : '';
+    var h = '<div class="pix">';
+    if (res.pixCopiaCola) {
+      h += '<div class="sec">Pague com Pix</div><p class="nota" style="margin:0 0 8px">Copie o código abaixo e cole na opção "Pix copia e cola" do app do seu banco. O valor já vai preenchido. O Pix aparece em nome de <b>Arthur Orsi Consultoria Ltda</b>, a empresa do Tanuki Ramen.</p>';
+      h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(res.pixCopiaCola) + '</textarea>';
+      h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
+      h += '<p class="nota">Assim que o Pix cair, o pagamento é confirmado automaticamente e o pedido é registrado. Não precisa enviar comprovante. <b>Fique nesta tela.</b></p>';
+    }
+    if (link) {
+      h += '<div class="sec" style="margin-top:16px">' + (res.pixCopiaCola ? 'Prefere cartão de crédito?' : 'Pagamento') + '</div>';
+      h += '<a class="btn ' + (res.pixCopiaCola ? 'sec2' : 'prim') + '" style="margin-top:8px" target="_blank" rel="noopener" href="' + esc(link) + '">Pagar com cartão de crédito</a>';
+      h += '<p class="nota">Abre a página segura do PicPay. Não precisa ter o app. No cartão, o PicPay pede <b>CPF, e-mail e endereço de cobrança</b>. Pagamento à vista.</p>';
+    }
+    h += linkWhats('Dúvidas? Fale com a gente no WhatsApp', 'Olá! Tenho uma dúvida sobre o pedido ' + String(res.ref || '').replace(/[^A-Za-z0-9]/g, '') + ' de ' + dados.nome.trim() + '.');
+    return h + '</div>';
+  }
   function htmlPagamento(res, total){
+    if (res.pixCopiaCola || res.pagamento) return htmlPagamentoPicPay(res, total);
     if (!CFG.PIX.chave || !CFG.PIX.titular) return '<p>Entraremos em contato para o pagamento.</p>';
     // Código do pedido (TNK + 6 letras/números aleatórios, criado pelo serviço): vai no Pix e na mensagem do
     // comprovante para conferir o pagamento. Não é sequencial, então não revela quantos pedidos existem.
@@ -481,8 +649,9 @@ var CFG = {
     var h = '<div class="pix"><div class="sec">Pague com Pix</div><p class="nota" style="margin:0 0 8px">Copie o código abaixo e cole na opção "Pix copia e cola" do app do seu banco. O valor já vai preenchido. O Pix aparece em nome de <b>Arthur Orsi Consultoria Ltda</b>, a empresa do Tanuki Ramen.</p>';
     h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(codigo) + '</textarea>';
     h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
-    h += linkWhats('Enviar comprovante no WhatsApp', 'Olá! Segue o comprovante do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + '.');
-    return h + '<p class="nota">Depois de pagar, envie o comprovante no nosso WhatsApp para confirmarmos o pagamento.</p></div>';
+    h += '<p class="nota">Assim que o Pix cair, confirmamos o pagamento e registramos o pedido (leva de 1 a 2 minutos). Não precisa enviar comprovante. <b>Fique nesta tela.</b></p>';
+    h += '<p class="nota">Se passar de 10 minutos e não confirmar, fale com a gente:</p>' + linkWhats('Paguei e não confirmou', 'Olá! Paguei o Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + ', e ainda não confirmou.');
+    return h + '</div>';
   }
   function copiarPix(b){
     var t = $('pixcod'); if (!t) return;
@@ -493,12 +662,49 @@ var CFG = {
     b.textContent = ok ? 'Código copiado ✓' : 'Selecione o código e copie';
   }
 
+  // A página pergunta ao serviço a cada 5 s se o pagamento já foi confirmado (o pedido só entra nas planilhas depois disso).
+  var pollTimer = null;
+  function pararEspera(){ if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+  function aguardarPagamento(ref){
+    pararEspera();
+    var n = 0;
+    pollTimer = setInterval(function(){
+      n++;
+      if (n > 600) { pararEspera(); return; }          // 50 minutos
+      if (document.hidden && n % 4) return;            // aba em segundo plano: pergunta menos
+      fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'pago', ref: ref})})
+        .then(function(r){ return r.json(); })
+        .then(function(j){ if (j && j.pago === true) { pararEspera(); pagoOk(ref); } })
+        .catch(function(){});
+    }, 5000);
+  }
+  function pagoOk(ref){
+    try { sessionStorage.removeItem('tanuki_ref_pend'); } catch(e){}
+    var base = modo ? modo.ref : ref;
+    var h = '<div class="msg ok"><h2>Pagamento confirmado!</h2>';
+    if (ultimaRes && ultimaRes.ref === ref) h += '<div class="valor">' + brl(Number(ultimaRes.total)) + '</div>';
+    h += '<p>' + (modo ? 'Seu complemento' : 'Seu pedido') + ' <b>' + esc(ref) + '</b> foi registrado. Obrigado!</p>';
+    if (ultimaRes && ultimaRes.ref === ref) h += '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">' + frase() + '</p>';
+    else h += '<p style="margin-top:14px">A data e o local da retirada estão na confirmação do seu pedido.</p>';
+    h += '<div class="card" style="margin-top:14px"><div class="sec">Esqueceu algo?</div><p class="nota">Você pode adicionar itens a este pedido (pagos à parte) até o prazo da rodada. Guarde o número <b>' + esc(base) + '</b>: com ele e o seu telefone você volta aqui, ou abra <b>' + esc(location.origin + location.pathname + '?complemento=' + base) + '</b>.</p>';
+    if (ultimaRes && ultimaRes.ref === ref) h += '<button class="btn sec2" style="margin-top:8px" data-a="complementar">Adicionar itens a este pedido</button>';
+    h += '</div></div>';
+    $('tela').innerHTML = h;
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
   function sucesso(res){
     try { sessionStorage.removeItem('tanuki_id_pedido'); } catch(e){}
     enviando = false;
     var total = Number(res.total);
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
-    $('tela').innerHTML = '<div class="msg ok"><h2>Seu pedido foi confirmado!</h2><div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) + '<ul class="resumo">' + resumoItens() + '</ul><p style="margin-top:14px">Retirada no sábado, <b>10/10, às 19h15</b>, na XV de Novembro, 68 (em cima da casa da moda). Obrigado!</p></div>';
+    ultimaRes = res; substituiRef = '';
+    try { sessionStorage.setItem('tanuki_ref_pend', res.ref); } catch(e){}
+    $('tela').innerHTML = '<div class="msg ok"><h2>Estamos quase lá!</h2><p><b>Falta só o pagamento.</b> ' + (modo ? 'Seu complemento' : 'Seu pedido') + ' só é registrado quando o pagamento for confirmado.</p>' +
+      '<div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) +
+      '<p class="nota" id="aguardando" style="margin-top:12px">⏳ Aguardando a confirmação do pagamento…</p>' +
+      '<ul class="resumo">' + resumoItens() + '</ul></div>';
+    aguardarPagamento(res.ref);
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
   var ultimoCorpo = null;  // último pedido enviado; "Tentar de novo" (sem resposta) reenvia exatamente este
@@ -517,6 +723,8 @@ var CFG = {
         acompanhamentos: contar('oni') ? soPositivos(extras.acomp) : {},
         sobremesas: soPositivos(extras.sob)
       };
+      if (substituiRef && !modo) corpo.substitui = substituiRef;
+      if (modo) { delete corpo.nome; corpo.acao = 'complemento'; corpo.ref = modo.ref; corpo.telefone = modo.tel; corpo.id = idComp; corpo.origem = 'complemento'; }
     }
     ultimoCorpo = corpo;
     enviando = true;
@@ -533,7 +741,9 @@ var CFG = {
           if (j && j.ok === true) { sucesso(j); return; }
           if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
           if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
-          if (j && (j.codigo === 'limite' || j.codigo === 'conflito')) { recusado(j.mensagem); return; }
+          if (j && j.codigo === 'existente') { existente(j); return; }
+          if (j && j.codigo === 'pendente') { pendente(j); return; }
+          if (j && (j.codigo === 'limite' || j.codigo === 'conflito' || j.codigo === 'prazo' || j.codigo === 'complemento' || j.codigo === 'nao_encontrado' || j.codigo === 'bloqueado')) { recusado(j.mensagem); return; }
           if (j && j.codigo === 'ocupado' && n < 3) { tentar(n + 1); return; }
           falhaEnvio(false);
         })
@@ -559,10 +769,10 @@ var CFG = {
       var d2 = dadosOk(); $('g-nome').classList.toggle('tem-erro', !d2.nome); $('g-tel').classList.toggle('tem-erro', !d2.tel);
       if (d2.ok) ir(primeiraTela(units.length - 1));
     }
-    else if (a === 'voltar') { var ps = passos(), at = ps.indexOf(tela); ir(at > 0 ? ps[at - 1] : 'dados'); }
+    else if (a === 'voltar') { var ps = passos(), at = ps.indexOf(tela); ir(at > 0 ? ps[at - 1] : (modo ? 'comp' : 'dados')); }
     else if (a === 'remover') {
       units.splice(iu, 1);
-      ir(units.length ? primeiraTela(Math.min(iu, units.length - 1)) : 'dados');
+      ir(units.length ? primeiraTela(Math.min(iu, units.length - 1)) : (modo ? 'comp' : 'dados'));
     }
     else if (a === 'sabor') { u.sabor = b.getAttribute('data-k'); render(); }
     else if (a === 'vin') { u.vin = (b.getAttribute('data-k') === 'true'); render(); }
@@ -592,6 +802,31 @@ var CFG = {
       enviarPedido();
     }
     else if (a === 'tentar') { ir('final'); }
+    else if (a === 'retomarpag') { retomarServico(pendRef, dados.tel, function(j){ carregarCorpo(j.corpo); sucesso(j); }); }
+    else if (a === 'retomaralt') {
+      retomarServico(pendRef, dados.tel, function(j){
+        if (!j.corpo) { alert('Este pedido é grande demais para alterar aqui. Volte ao pagamento ou fale com a gente pelo WhatsApp.'); return; }
+        carregarCorpo(j.corpo); substituiRef = j.ref; ir('final');
+      });
+    }
+    else if (a === 'outro') { ultimoCorpo.ignorarPendente = true; enviarPedido(true); }
+    else if (a === 'segundo') { ultimoCorpo.segundoPedido = true; enviarPedido(true); }
+    else if (a === 'acessar') { ir('acesso'); }
+    else if (a === 'voltardados') { modo = null; refPre = ''; ir('dados'); }
+    else if (a === 'continuarc') { ir(primeiraTela(units.length - 1)); }
+    else if (a === 'consultar' || a === 'atualizar') {
+      var rr = a === 'atualizar' ? modo.ref : ($('refc').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), tt = a === 'atualizar' ? modo.tel : dados.tel, er = $('erro-acesso');
+      var mostra = function(m){ if (er) { er.textContent = m; er.style.display = 'block'; } else alert(m); b.disabled = false; };
+      if (a === 'consultar' && (!rr || !foneOk(tt))) { mostra(!rr ? 'Informe o número do pedido.' : 'Telefone inválido. Use DDD + número.'); return; }
+      b.disabled = true; enviando = true;
+      consultarPedido(rr, tt, mostra);
+    }
+    else if (a === 'complementar') {
+      // depois do pagamento do pedido novo: entra no modo complemento com o número e o telefone que acabaram de ser usados
+      var rc = modo ? modo.ref : ((ultimaRes && ultimaRes.ref) || ''), tc = modo ? modo.tel : dados.tel;
+      units = []; extras = {acomp:{}, sob:{}}; b.disabled = true; enviando = true;
+      consultarPedido(rc, tc, function(m){ enviando = false; b.disabled = false; alert(m); });
+    }
     else if (a === 'reenviar') { b.id = 'btnReenviar'; enviarPedido(true); }
     else if (a === 'copiar') { copiarPix(b); }
   });
@@ -604,7 +839,15 @@ var CFG = {
     ev.target.value = s;
   });
 
-  if (CFG.API_URL.indexOf('COLE_AQUI') === 0) {
+  // Volta da página do PicPay depois de pagar no cartão (redirect_url do serviço termina com ?pago=1).
+  if (new URLSearchParams(location.search).get('pago') === '1') {
+    try { sessionStorage.removeItem('tanuki_id_pedido'); } catch(e){}
+    mostrarEstado('<h2>Pagamento enviado!</h2><p>Recebemos a volta da página do PicPay. Seu pedido é registrado assim que o pagamento for confirmado. A data e o local da retirada estão na confirmação do seu pedido. Obrigado!</p>' +
+      '<p class="nota" id="aguardando">⏳ Aguardando a confirmação do pagamento…</p>' +
+      linkWhats('Dúvidas? Fale com a gente no WhatsApp', 'Olá! Paguei meu pedido no cartão e tenho uma dúvida.'), 'ok');
+    var refPend = ''; try { refPend = sessionStorage.getItem('tanuki_ref_pend') || ''; } catch(e){}
+    if (refPend) aguardarPagamento(refPend);
+  } else if (CFG.API_URL.indexOf('COLE_AQUI') === 0) {
     mostrarEstado('<h2>Página ainda não configurada</h2><p>Falta ligar o serviço de pedidos.</p>' + linkForms('Abrir o formulário de pedidos'), 'falha');
   } else {
     carregar();
