@@ -393,7 +393,7 @@ var CFG = {
       CFG.ADICIONAIS.filter(function(a){ return !a.prot && a.max === 1; }).forEach(function(a){ h += '<button class="chip check" aria-pressed="' + (!!u.ad[a.k]) + '" data-a="ad" data-k="' + a.k + '"><span class="dot"></span><span class="t">' + a.nome + '<small>' + sub(a) + '</small></span></button>'; });
       h += '</div><p class="nota">Kani e ajitama não são vegetarianos.</p></div>';
     } else {
-      h += '<p class="sub">' + textoPreco(CFG.ONIGIRIS, 'Onigiri') + ' cada · 120 g · a folha de nori vem separada na embalagem.</p><div class="card">';
+      h += '<p class="sub">' + textoPreco(CFG.ONIGIRIS, 'Onigiri') + ' cada · 110 g · a folha de nori vem separada na embalagem.</p><div class="card">';
       h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
       CFG.ONIGIRIS.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + '</small></span></button>'; });
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
