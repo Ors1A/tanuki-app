@@ -334,10 +334,10 @@ var CFG = {
     i.itens.forEach(function(x){ li += '<li><b>' + x.qtd + '× ' + esc(x.nome) + '</b></li>'; });
     i.adicionais.forEach(function(x){ li += '<li>+ ' + x.qtd + '× ' + esc(x.nome) + ' <small>(' + esc(x.em) + ')</small></li>'; });
     h += '<div class="card"><div class="sec">O que você pediu</div><ul class="resumo">' + li + '</ul><div class="valor">' + brl(i.total) + '</div>';
-    h += '<p class="nota">Pagamento: <b>' + (i.status === 'aprovado' ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
+    h += '<p class="nota">Pagamento: <b>' + (String(i.status).indexOf('aprovado') === 0 ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
     if (i.complementos.length) {
       h += '<div class="card"><div class="sec">Complementos</div><ul class="resumo">';
-      i.complementos.forEach(function(c){ h += '<li><b>' + esc(c.ref) + '</b> · ' + brl(c.total) + ' · ' + (c.status === 'aprovado' ? 'pago' : esc(c.status)) + '</li>'; });
+      i.complementos.forEach(function(c){ h += '<li><b>' + esc(c.ref) + '</b> · ' + brl(c.total) + ' · ' + (String(c.status).indexOf('aprovado') === 0 ? 'pago' : esc(c.status)) + '</li>'; });
       h += '</ul></div>';
     }
     if (i.podeComplementar) {
@@ -346,7 +346,7 @@ var CFG = {
       h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div>';
       if (i.ate) h += '<p class="nota">Dá para adicionar itens até ' + esc(i.ate) + '.</p>';
       h += '</div>';
-    } else if (i.status !== 'aprovado') {
+    } else if (String(i.status).indexOf('aprovado') !== 0) {
       h += '<div class="msg aviso"><p>O pagamento ainda não foi confirmado. Assim que ele for confirmado, você poderá adicionar itens aqui.</p><button class="btn sec2" style="margin-top:10px" data-a="atualizar">Já paguei, atualizar</button></div>';
     } else {
       h += '<div class="msg aviso"><p>' + (i.prazo ? 'Este pedido já tem o máximo de complementos.' : 'O prazo para adicionar itens acabou.') + ' Para alterações, fale com a gente pelo WhatsApp.</p>' +
@@ -649,8 +649,9 @@ var CFG = {
     var h = '<div class="pix"><div class="sec">Pague com Pix</div><p class="nota" style="margin:0 0 8px">Copie o código abaixo e cole na opção "Pix copia e cola" do app do seu banco. O valor já vai preenchido. O Pix aparece em nome de <b>Arthur Orsi Consultoria Ltda</b>, a empresa do Tanuki Ramen.</p>';
     h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(codigo) + '</textarea>';
     h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
-    h += linkWhats('Enviar comprovante no WhatsApp', 'Olá! Segue o comprovante do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + '.');
-    return h + '<p class="nota">Depois de pagar, envie o comprovante no nosso WhatsApp para confirmarmos o pagamento.</p></div>';
+    h += '<p class="nota">Assim que o Pix cair, confirmamos o pagamento e registramos o pedido (leva de 1 a 2 minutos). Não precisa enviar comprovante. <b>Fique nesta tela.</b></p>';
+    h += '<p class="nota">Se passar de 10 minutos e não confirmar, fale com a gente:</p>' + linkWhats('Paguei e não confirmou', 'Olá! Paguei o Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + ', e ainda não confirmou.');
+    return h + '</div>';
   }
   function copiarPix(b){
     var t = $('pixcod'); if (!t) return;
