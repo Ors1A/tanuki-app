@@ -195,23 +195,182 @@ function telaProducao() {
     '<h2>Pedidos por cliente</h2>' + (pedidos || '<p class="mudo">Nenhum pedido.</p>');
 }
 
+// ---------- contagem das etiquetas (formato novo) ----------
+// Vinagrete é grátis e vai em pote separado: conta à parte, não é "adicional".
+function resumoEtiquetas(linhas) {
+  const r = { oni: {}, poke: {}, adic: {}, acomp: {}, sob: {}, vin: 0 };
+  const soma = (o, k, n) => { o[k] = (o[k] || 0) + n; };
+  linhas.forEach(l => {
+    const prod = String(l[1] || '').trim(), i = prod.indexOf(' - ');
+    if (i < 0) return;
+    const tipo = norm(prod.slice(0, i)), m = /^(.*?)(?:\s+x(\d+))?$/.exec(prod.slice(i + 3).trim());
+    const sabor = m[1], q = m[2] ? +m[2] : 1;
+    if (tipo === 'onigiri') soma(r.oni, sabor, q);
+    else if (tipo === 'acompanhamento') soma(r.acomp, sabor, q);
+    else if (tipo === 'sobremesa') soma(r.sob, sabor, q);
+    else if (tipo === 'poke') {
+      const p = r.poke[sabor] = r.poke[sabor] || { total: 0, sem: 0, com: 0 };
+      const ex = String(l[2] || '').split(',').map(x => x.trim()).filter(Boolean);
+      if (ex.some(x => norm(x) === 'vinagrete')) r.vin++;
+      const pagos = ex.filter(x => norm(x) !== 'vinagrete');
+      p.total++; if (pagos.length) p.com++; else p.sem++;
+      pagos.forEach(x => { const mm = /^(\d+)x\s+(.*)$/.exec(x); soma(r.adic, mm ? mm[2] : x, mm ? +mm[1] : 1); });
+    }
+  });
+  return r;
+}
+
+function htmlResumo(r) {
+  const val = v => typeof v === 'number' ? v : v.total;
+  const tot = o => Object.keys(o).reduce((a, k) => a + val(o[k]), 0);
+  const lista = (o, fmt) => Object.keys(o).sort((a, b) => val(o[b]) - val(o[a]))
+    .map(k => '<div class="sub"><span>' + esc(k) + '</span><b>' + fmt(o[k]) + '</b></div>').join('');
+  const bloco = (t, corpo) => corpo ? '<h2>' + t + '</h2><div class="card">' + corpo + '</div>' : '';
+  const soma = k => Object.keys(r.poke).reduce((a, n) => a + r.poke[n][k], 0);
+  const nOni = tot(r.oni), nPoke = tot(r.poke), nAd = tot(r.adic);
+  return '<div class="grade"><div class="card"><div class="rot">Onigiris</div><div class="val l">' + nOni + '</div></div>' +
+    '<div class="card"><div class="rot">Pokes</div><div class="val">' + nPoke + '</div></div></div>' +
+    bloco('Onigiris por sabor', lista(r.oni, v => v)) +
+    bloco('Pokes por sabor', lista(r.poke, v => v.total + ' <span class="mudo">(' + v.sem + ' sem · ' + v.com + ' com adicionais)</span>') +
+      (nPoke ? '<div class="sub"><span>Sem adicionais (todos)</span><b>' + soma('sem') + '</b></div>' +
+        '<div class="sub"><span>Com adicionais (todos)</span><b>' + soma('com') + '</b></div>' +
+        '<div class="sub"><span>Com vinagrete</span><b>' + r.vin + '</b></div>' : '')) +
+    bloco('Adicionais dos pokes (' + nAd + ' no total)', lista(r.adic, v => v)) +
+    bloco('Acompanhamentos', lista(r.acomp, v => v)) + bloco('Sobremesas', lista(r.sob, v => v));
+}
+
+// ---------- imprimir / baixar PDF das etiquetas (mesmo modelo de 10/10) ----------
+function nomeBonito(n) {
+  if (n !== n.toUpperCase() && n !== n.toLowerCase()) return n;
+  return n.toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase())
+    .replace(/\s(De|Da|Do|Dos|Das)(?=\s|$)/g, x => x.toLowerCase());
+}
+
+function linhasEtiqueta(linhas) {
+  return linhas.map(l => {
+    const prod = String(l[1] || '').trim(), i = prod.indexOf(' - ');
+    if (i < 0) return null;
+    const m = /^(.*?)(?:\s+x(\d+))?$/.exec(prod.slice(i + 3).trim());
+    return { nome: nomeBonito(String(l[0] || '').trim()), tipo: prod.slice(0, i).trim(), sabor: m[1], q: m[2] ? +m[2] : 1, adic: String(l[2] || '').trim() };
+  }).filter(Boolean);
+}
+
+function rodadaAtual() {
+  const lista = (dados && dados.etiquetas || []).slice().reverse();
+  return lista[rodadaSel] || lista[0];
+}
+
+function htmlComandas(ls, retirada) {
+  const pessoas = [];
+  ls.forEach(l => {
+    let p = pessoas.find(x => x.nome.toLowerCase() === l.nome.toLowerCase());
+    if (!p) pessoas.push(p = { nome: l.nome, itens: [] });
+    p.itens.push(l);
+  });
+  const tipos = ['Poke', 'Onigiri', 'Acompanhamento', 'Sobremesa'];
+  return '<div class="pgrade">' + pessoas.map(p => {
+    const pokes = p.itens.filter(i => i.tipo === 'Poke');
+    let k = 0, html = '';
+    tipos.forEach(t => {
+      const grupo = p.itens.filter(i => i.tipo === t);
+      if (!grupo.length) return;
+      html += '<h4>' + t + (t === 'Poke' && pokes.length > 1 ? ' (' + pokes.length + ')' : '') + '</h4><ul>' + grupo.map(i => {
+        if (t === 'Poke') { k++; return '<li><span><b>' + (pokes.length > 1 ? k + '. ' : '') + esc(i.sabor) + '</b>' + (i.adic ? '<span class="psub">+ ' + esc(i.adic) + '</span>' : '') + '</span></li>'; }
+        return '<li><span><b>' + i.q + 'x</b> ' + esc(i.sabor) + '</span></li>';
+      }).join('') + '</ul>';
+    });
+    return '<div class="comanda"><div class="cab"><div class="mk">Tanuki' + (retirada ? ' · Retirada ' + esc(retirada) : '') + '</div><h3>' + esc(p.nome) +
+      '</h3></div>' + html + '<div class="rod">Conferir antes de fechar o saco</div></div>';
+  }).join('') + '</div>';
+}
+
+function htmlTampas(ls) {
+  return '<div class="pgrade">' + ls.filter(l => l.tipo === 'Poke').map(l =>
+    '<div class="tampa"><div class="n">' + esc(l.nome) + '</div><div class="p">Poke - ' + esc(l.sabor) + '</div><div class="a">' + (l.adic ? esc(l.adic) : '&nbsp;') + '</div></div>').join('') + '</div>';
+}
+
+// Avisos de alergênicos e validade: texto do modelo aprovado de 10/10, não alterar sem pedido do usuário.
+const CONTEM_ONIGIRI = { 'Salmão': 'Contém leite', 'Tuna Mayo': 'Contém ovo', 'Shimeji (vegetariano)': 'Contém castanha de caju e leite' };
+
+function htmlOnigiris(ls) {
+  const tot = {};
+  ls.filter(l => l.tipo === 'Onigiri').forEach(l => { tot[l.sabor] = (tot[l.sabor] || 0) + l.q; });
+  return Object.keys(tot).map(sb => {
+    let h = '<div class="pgrade" style="margin-bottom:12px">';
+    for (let i = 0; i < tot[sb]; i++) {
+      h += '<div class="oni"><div class="s">' + esc(sb.replace(' (vegetariano)', '')) + '</div>' + (sb.indexOf('vegetariano') >= 0 ? '<div class="v">vegetariano</div>' : '') +
+        '<div class="av">' + (CONTEM_ONIGIRI[sb] ? '<b>' + esc(CONTEM_ONIGIRI[sb]) + '</b><br>' : '') + 'Consumir em até 2 dias. Manter a 8 °C ou menos</div></div>';
+    }
+    return h + '</div>';
+  }).join('');
+}
+
+// Uma fonte só para todas as tampas (a maior que cabe na mais cheia), para ficarem iguais.
+function ajustarTampas() {
+  const as = [].slice.call(document.querySelectorAll('#impressao .tampa .a')).filter(a => a.textContent.trim());
+  let melhor = 24;
+  as.forEach(a => {
+    let lo = 10, hi = 24;
+    while (hi - lo > 0.25) {
+      const mid = (lo + hi) / 2;
+      a.style.fontSize = mid + 'px';
+      if (a.scrollHeight > a.clientHeight + 1 || a.scrollWidth > a.clientWidth + 1) hi = mid; else lo = mid;
+    }
+    melhor = Math.min(melhor, lo);
+  });
+  as.forEach(a => { a.style.fontSize = melhor + 'px'; });
+}
+
+function imprimir(qual) {
+  const r = rodadaAtual();
+  if (!r) return;
+  const ls = linhasEtiqueta(r.linhas);
+  const corpo = qual === 'tampas' ? htmlTampas(ls) : qual === 'onigiris' ? htmlOnigiris(ls) : htmlComandas(ls, (LS.get('tanuki_retirada') || '').trim());
+  if (!corpo.replace(/<div class="pgrade"[^>]*><\/div>/g, '')) { alert('Nada para imprimir nesta rodada.'); return; }
+  let el = $('#impressao');
+  if (!el) { el = document.createElement('div'); el.id = 'impressao'; document.body.appendChild(el); }
+  el.innerHTML = corpo;
+  document.body.classList.add('medindo'); // mostra fora da tela só para medir as tampas
+  if (qual === 'tampas') ajustarTampas();
+  document.body.classList.remove('medindo');
+  document.body.classList.add('imprimindo');
+  window.print();
+}
+window.addEventListener('afterprint', () => document.body.classList.remove('imprimindo'));
+
+function htmlImprimir(r) {
+  const ls = linhasEtiqueta(r.linhas);
+  const nCom = new Set(ls.map(l => l.nome.toLowerCase())).size;
+  const nPoke = ls.filter(l => l.tipo === 'Poke').length;
+  const nOni = ls.filter(l => l.tipo === 'Onigiri').reduce((a, l) => a + l.q, 0);
+  return '<h2>Imprimir ou baixar PDF</h2><div class="card">' +
+    '<div class="rot">Retirada (opcional, sai na comanda)</div><input type="text" id="ret" placeholder="ex.: 24/10" value="' + esc(LS.get('tanuki_retirada') || '') + '">' +
+    '<div class="pbtns"><button data-imp="comandas">Comandas (' + nCom + ')</button><button data-imp="tampas">Tampas do poke (' + nPoke + ')</button><button data-imp="onigiris">Onigiris (' + nOni + ')</button></div>' +
+    '<p class="mudo">Abre a impressão do aparelho. No computador ou Android, escolha “Salvar como PDF”. No iPhone, use o botão de compartilhar da tela de impressão.</p></div>';
+}
+
 function telaEtiquetas() {
   const abas = dados.etiquetas || [];
   if (!abas.length) return '<p class="mudo">Nenhuma aba de etiquetas encontrada nas planilhas de pedidos.</p>';
   const lista = abas.slice().reverse();
   if (rodadaSel >= lista.length) rodadaSel = 0;
   const r = lista[rodadaSel];
+  const novo = !/telefone/i.test(String((r.cabecalho || [])[1] || '')); // novo: Nome | Produto - Sabor | Adicionais | Origem
   const q = norm(busca.etq);
   const linhas = r.linhas.filter(l => !q || norm(l.join(' ')).includes(q));
   const clientes = new Set(r.linhas.map(l => l[0])).size;
   const sel = '<select id="sel-rodada">' + lista.map((a, i) => '<option value="' + i + '"' + (i === rodadaSel ? ' selected' : '') + '>' + esc(a.aba) + '</option>').join('') + '</select>';
   const itens = linhas.map(l => {
+    if (novo) {
+      const ad = String(l[2] || '').split(',').map(x => x.trim()).filter(Boolean).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
+      return '<div class="card etq"><div><b>' + esc(l[0]) + '</b>' + esc(l[1]) + '<br>' + ad + '</div><div class="mudo">' + esc(l[3] || '') + '</div></div>';
+    }
     const link = foneLink(l[1]);
     const extras = l.slice(3).filter(Boolean).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
     return '<div class="card etq"><div><b>' + esc(l[0]) + '</b>' + esc(l[2]) + '<br>' + extras + '</div>' +
       '<div>' + (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(l[1]) + '</a>' : esc(l[1])) + '</div></div>';
   }).join('');
-  return sel + '<input type="search" id="busca-etq" placeholder="Buscar cliente, item…" value="' + esc(busca.etq) + '">' +
+  return sel + (novo ? htmlResumo(resumoEtiquetas(r.linhas)) + htmlImprimir(r) : '') + '<input type="search" id="busca-etq" placeholder="Buscar cliente, item…" value="' + esc(busca.etq) + '">' +
     '<p class="mudo">' + r.linhas.length + ' etiquetas · ' + clientes + ' clientes' + (q ? ' · ' + linhas.length + ' na busca' : '') + '</p>' +
     (itens || '<p class="mudo">Nada encontrado.</p>');
 }
@@ -244,6 +403,9 @@ function ligar() {
     document.querySelectorAll('.calc button').forEach(b => b.classList.toggle('on', +b.dataset.n === v));
   };
   document.querySelectorAll('.calc button').forEach(b => b.onclick = () => { calc.n = +b.dataset.n; desenhar(); });
+  const rt = $('#ret');
+  if (rt) rt.oninput = () => LS.set('tanuki_retirada', rt.value);
+  document.querySelectorAll('[data-imp]').forEach(b => b.onclick = () => imprimir(b.dataset.imp));
   const sr = $('#sel-rodada');
   if (sr) sr.onchange = () => { rodadaSel = +sr.value; desenhar(); };
   const be = $('#busca-etq');
