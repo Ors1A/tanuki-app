@@ -11,12 +11,14 @@ let dados = null;
 let aba = 'dashboard';
 let busca = { etq: '', custo: '' };
 let rodadaSel = 0;
+let calc = { prato: '', n: null };
 
 // ---------- utilidades ----------
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const brl = n => (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const pct = f => (f == null || isNaN(f)) ? '—' : (f * 100).toFixed(0) + '%';
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const num = n => Number(n).toLocaleString('pt-BR', { maximumFractionDigits: Math.abs(n) < 10 ? 2 : 1 });
 const foneLink = t => { const d = String(t || '').replace(/\D/g, ''); return d.length >= 10 ? 'https://wa.me/' + (d.length <= 11 ? '55' + d : d) : ''; };
 
 // ---------- dados ----------
@@ -61,10 +63,13 @@ function sair() {
 
 // ---------- telas ----------
 function desenhar() {
+  if (dados && !dados.producao && aba === 'producao') aba = 'dashboard';
+  $('[data-aba="producao"]').hidden = !(dados && dados.producao); // só aparece quando o Apps Script envia os pedidos
   document.querySelectorAll('#abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === aba));
   if (!dados) return;
   const tela = $('#tela');
-  tela.innerHTML = aba === 'dashboard' ? telaDashboard() : aba === 'etiquetas' ? telaEtiquetas() : telaCustos();
+  tela.innerHTML = aba === 'dashboard' ? telaDashboard() : aba === 'receitas' ? telaReceitas() : aba === 'producao' ? telaProducao()
+    : aba === 'etiquetas' ? telaEtiquetas() : telaCustos();
   ligar();
 }
 
@@ -114,6 +119,82 @@ function painelPrato(p) {
   return h;
 }
 
+// ---------- receitas e calculadora de porções ----------
+function pratosReceita() {
+  return (dados.dashboard.pratos || []).filter(p => !p.placeholder && p.ingredientes && p.ingredientes.length)
+    .sort((a, b) => (a.categoria === 'Verão' ? 0 : 1) - (b.categoria === 'Verão' ? 0 : 1));
+}
+
+function telaReceitas() {
+  const lista = pratosReceita();
+  if (!lista.length) return '<p class="mudo">Nenhuma receita encontrada na planilha.</p>';
+  const p = lista.find(x => x.prato === calc.prato);
+  const opts = lista.map(x => '<option value="' + esc(x.prato) + '"' + (x === p ? ' selected' : '') + '>' + esc(x.prato) + '</option>').join('');
+  return '<select id="sel-receita"><option value="">Selecione uma receita…</option>' + opts + '</select>' + painelReceita(p);
+}
+
+function painelReceita(p) {
+  if (!p) return '<p class="mudo">Escolha uma receita para ver os ingredientes e ajustar as porções.</p>';
+  const base = p.rendimentoPorcoes || 1;
+  if (calc.n == null) calc.n = base;
+  const pre = [1, 5, 10, 20].map(v => '<button data-n="' + v + '" class="' + (calc.n === v ? 'on' : '') + '">' + v + '</button>').join('');
+  return '<div class="card"><div class="rot">Quantas porções?</div>' +
+    '<div class="calc"><input id="calc-n" type="number" inputmode="decimal" min="0" step="any" value="' + esc(calc.n) + '">' + pre + '</div>' +
+    '<p class="mudo">A ficha da planilha rende ' + num(base) + ' porção(ões).</p>' +
+    '<div id="tab-receita">' + tabelaReceita(p, calc.n) + '</div></div>' + passos(p);
+}
+
+function tabelaReceita(p, n) {
+  const f = n / (p.rendimentoPorcoes || 1);
+  return '<table><thead><tr><th>Ingrediente</th><th class="n">Quantidade</th></tr></thead><tbody>' +
+    p.ingredientes.map(i => '<tr><td>' + esc(i.nome) + '</td><td class="qtd">' +
+      (i.quantidade == null ? '—' : num(i.quantidade * f) + ' ' + esc(i.unidade || '')) + '</td></tr>').join('') + '</tbody></table>';
+}
+
+function passos(p) {
+  const m = p.modoPreparo;
+  const t = (Array.isArray(m) ? m : String(m || '').split(/\n+/)).map(x => String(x).trim()).filter(Boolean);
+  if (!t.length) return '<p class="mudo">Modo de preparo ainda não cadastrado para esta receita.</p>';
+  return '<div class="card"><div class="rot">Modo de preparo</div><ol class="passos">' + t.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></div>';
+}
+
+// ---------- produção do dia (dados.producao vem do Apps Script) ----------
+function acharFicha(nome) {
+  const n = norm(nome), l = pratosReceita();
+  return l.find(p => norm(p.prato) === n) || l.find(p => norm(p.prato).includes(n) || n.includes(norm(p.prato)));
+}
+
+function telaProducao() {
+  const pr = dados.producao;
+  const itens = pr.itens || [];
+  const soma = {}, semReceita = [];
+  itens.forEach(it => {
+    const f = acharFicha(it.item);
+    if (!f) { semReceita.push(it.item); return; }
+    const fator = it.quantidade / (f.rendimentoPorcoes || 1);
+    f.ingredientes.forEach(i => {
+      const k = norm(i.nome) + '|' + (i.unidade || '');
+      soma[k] = soma[k] || { nome: i.nome, un: i.unidade || '', q: 0 };
+      soma[k].q += (i.quantidade || 0) * fator;
+    });
+  });
+  const ing = Object.keys(soma).map(k => soma[k]).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const linha = (a, b) => '<div class="sub"><span>' + a + '</span><b>' + b + '</b></div>';
+  const pedidos = (pr.pedidos || []).map(p => {
+    const link = foneLink(p.telefone);
+    const its = (p.itens || []).map(i => linha(esc(i.item), esc(i.quantidade) + '×')).join('') +
+      (p.adicionais || []).map(a => linha('+ ' + esc(a.adicional), esc(a.quantidade) + '×')).join('');
+    return '<div class="card"><div class="etq"><div><b>' + esc(p.cliente) + '</b>' +
+      (p.status ? '<span class="tag">' + esc(p.status) + '</span>' : '') + '</div><div>' +
+      (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(p.telefone) + '</a>' : esc(p.telefone || '')) + '</div></div>' + its + '</div>';
+  }).join('');
+  return '<p class="mudo">' + (pr.leva ? esc(pr.leva) + ' · ' : '') + (pr.pedidos || []).length + ' pedidos</p>' +
+    '<h2>A produzir</h2><div class="card">' + (itens.map(i => linha(esc(i.item), esc(i.quantidade) + '×')).join('') || '<p class="mudo">Nenhum pedido pago.</p>') + '</div>' +
+    '<h2>Ingredientes para esta produção</h2><div class="card">' + (ing.map(i => linha(esc(i.nome), num(i.q) + ' ' + esc(i.un))).join('') || '<p class="mudo">Sem receitas para somar.</p>') + '</div>' +
+    (semReceita.length ? '<p class="aviso">Sem ficha na planilha, não somados: ' + esc(semReceita.join(', ')) + '</p>' : '') +
+    '<h2>Pedidos por cliente</h2>' + (pedidos || '<p class="mudo">Nenhum pedido.</p>');
+}
+
 function telaEtiquetas() {
   const abas = dados.etiquetas || [];
   if (!abas.length) return '<p class="mudo">Nenhuma aba de etiquetas encontrada nas planilhas de pedidos.</p>';
@@ -152,6 +233,17 @@ function telaCustos() {
 function ligar() {
   const sp = $('#sel-prato');
   if (sp) sp.onchange = () => { $('#painel-prato').innerHTML = painelPrato(dados.dashboard.pratos[sp.value]); };
+  const se = $('#sel-receita');
+  if (se) se.onchange = () => { calc.prato = se.value; calc.n = null; desenhar(); };
+  const cn = $('#calc-n');
+  if (cn) cn.oninput = () => {
+    const v = parseFloat(String(cn.value).replace(',', '.'));
+    const p = pratosReceita().find(x => x.prato === calc.prato);
+    if (!(v >= 0) || !p) return;
+    calc.n = v; $('#tab-receita').innerHTML = tabelaReceita(p, v);
+    document.querySelectorAll('.calc button').forEach(b => b.classList.toggle('on', +b.dataset.n === v));
+  };
+  document.querySelectorAll('.calc button').forEach(b => b.onclick = () => { calc.n = +b.dataset.n; desenhar(); });
   const sr = $('#sel-rodada');
   if (sr) sr.onchange = () => { rodadaSel = +sr.value; desenhar(); };
   const be = $('#busca-etq');

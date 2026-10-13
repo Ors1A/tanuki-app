@@ -49,3 +49,13 @@ svg.graf{width:100%;height:auto}
 .sair{background:none;border:0;color:var(--mudo);text-decoration:underline;margin:24px auto 0;display:block}
 details .grade .val{font-size:1.05rem}details .grade .card{min-width:0;padding:8px 10px}
 details .card{padding:8px}
+
+nav button{font-size:.85rem}
+.calc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.calc input{width:96px;padding:11px 12px;border:1px solid var(--borda);border-radius:10px;font-size:1.1rem;font-weight:700}
+.calc button{padding:9px 12px;border:1px solid var(--borda);border-radius:10px;background:#fff;font-weight:600}
+.calc button.on{background:var(--laranja);border-color:var(--laranja);color:#fff}
+.passos{margin:0;padding-left:1.3em}.passos li{margin-bottom:6px}
+td.qtd{text-align:right;white-space:nowrap;font-weight:700}
+.sub{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--borda)}
+.sub:last-child{border-bottom:0}
