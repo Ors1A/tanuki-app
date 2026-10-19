@@ -95,3 +95,4 @@ body.medindo #impressao{display:block;position:absolute;left:-9999px;top:0;width
   #impressao .pgrade{gap:0}
   #impressao .comanda,#impressao .tampa,#impressao .oni{margin:0;border:1px dashed #999}
 }
+details.todos{margin-top:12px}details.todos summary{cursor:pointer;padding:6px 0}

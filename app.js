@@ -146,16 +146,28 @@ function painelReceita(p) {
 
 function tabelaReceita(p, n) {
   const f = n / (p.rendimentoPorcoes || 1);
-  return '<table><thead><tr><th>Ingrediente</th><th class="n">Quantidade</th></tr></thead><tbody>' +
+  const todos = '<table><thead><tr><th>Ingrediente</th><th class="n">Quantidade</th></tr></thead><tbody>' +
     p.ingredientes.map(i => '<tr><td>' + esc(i.nome) + '</td><td class="qtd">' +
       (i.quantidade == null ? '—' : num(i.quantidade * f) + ' ' + esc(i.unidade || '')) + '</td></tr>').join('') + '</tbody></table>';
+  if (!p.montagem || !p.montagem.length) return todos;
+  // montagem: quantidade por porção (1 bowl, 1 onigiri) x número de porções
+  const aberto = document.querySelector('#tab-receita details.todos');
+  return '<table><thead><tr><th>Montagem</th><th class="n">Quantidade</th></tr></thead><tbody>' +
+    p.montagem.map(i => '<tr><td>' + esc(i.nome) + (i.obs ? '<br><span class="mudo">' + esc(i.obs) + '</span>' : '') + '</td><td class="qtd">' +
+      (i.quantidade == null ? '—' : num(i.quantidade * n) + ' ' + esc(i.unidade || '')) + '</td></tr>').join('') + '</tbody></table>' +
+    '<details class="todos"' + (aberto && aberto.open ? ' open' : '') + '><summary class="mudo">Todos os ingredientes (da planilha)</summary>' + todos + '</details>';
+}
+
+function listaPassos(m) {
+  return (Array.isArray(m) ? m : String(m || '').split(/\n+/)).map(x => String(x).trim()).filter(Boolean);
 }
 
 function passos(p) {
-  const m = p.modoPreparo;
-  const t = (Array.isArray(m) ? m : String(m || '').split(/\n+/)).map(x => String(x).trim()).filter(Boolean);
-  if (!t.length) return '<p class="mudo">Modo de preparo ainda não cadastrado para esta receita.</p>';
-  return '<div class="card"><div class="rot">Modo de preparo</div><ol class="passos">' + t.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></div>';
+  const t = listaPassos(p.modoPreparo);
+  const etapas = (p.montagem || []).filter(i => listaPassos(i.modoPreparo).length).map(i =>
+    '<div class="card"><div class="rot">Como fazer: ' + esc(i.nome) + '</div><ol class="passos">' + listaPassos(i.modoPreparo).map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></div>').join('');
+  if (!t.length && !etapas) return '<p class="mudo">Modo de preparo ainda não cadastrado para esta receita.</p>';
+  return (t.length ? '<div class="card"><div class="rot">Modo de preparo</div><ol class="passos">' + t.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></div>' : '') + etapas;
 }
 
 // ---------- produção do dia (dados.producao vem do Apps Script) ----------
