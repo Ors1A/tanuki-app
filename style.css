@@ -61,6 +61,7 @@ td.qtd{text-align:right;white-space:nowrap;font-weight:700}
 .sub:last-child{border-bottom:0}
 
 input[type=text]{width:100%;padding:11px 12px;border:1px solid var(--borda);border-radius:10px;background:#fff;margin:6px 0 12px}
+.calc input.inv{border-color:#c0392b}
 .pbtns{display:flex;gap:8px;flex-wrap:wrap}
 .pbtns button{padding:10px 12px;border:0;border-radius:10px;background:var(--laranja);color:#fff;font-weight:700}
 /* ---- folhas de impressão (comandas, tampas, onigiris) ---- */

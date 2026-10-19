@@ -40,8 +40,7 @@ async function atualizar(silencioso) {
   } catch (e) {
     if (e.senha) { sair(); $('#login-erro').textContent = 'Senha incorreta.'; return; }
     if (e.bloqueado) { $('#status').textContent = 'Bloqueado 15 min (senhas erradas)'; return; }
-    if (!silencioso || !dados) $('#status').textContent = 'Sem conexão';
-    else $('#status').textContent = 'Offline · dados salvos';
+    $('#status').textContent = dados ? 'Offline · dados salvos' : 'Sem conexão';
   } finally {
     btn.classList.remove('gira');
   }
@@ -139,7 +138,8 @@ function painelReceita(p) {
   if (calc.n == null) calc.n = base;
   const pre = [1, 5, 10, 20].map(v => '<button data-n="' + v + '" class="' + (calc.n === v ? 'on' : '') + '">' + v + '</button>').join('');
   return '<div class="card"><div class="rot">Quantas porções?</div>' +
-    '<div class="calc"><input id="calc-n" type="number" inputmode="decimal" min="0" step="any" value="' + esc(calc.n) + '">' + pre + '</div>' +
+    '<div class="calc"><input id="calc-n" type="text" inputmode="decimal" autocomplete="off" value="' + esc(String(calc.n).replace('.', ',')) + '">' + pre + '</div>' +
+    '<p class="erro" id="calc-aviso" role="alert"></p>' +
     '<p class="mudo">A ficha da planilha rende ' + num(base) + ' porção(ões).</p>' +
     '<div id="tab-receita">' + tabelaReceita(p, calc.n) + '</div></div>' + passos(p);
 }
@@ -292,6 +292,8 @@ function htmlTampas(ls) {
 // Avisos de alergênicos e validade: texto do modelo aprovado de 10/10, não alterar sem pedido do usuário.
 const CONTEM_ONIGIRI = { 'Salmão': 'Contém leite', 'Tuna Mayo': 'Contém ovo', 'Shimeji (vegetariano)': 'Contém castanha de caju e leite' };
 
+const contemOnigiri = sb => { const k = Object.keys(CONTEM_ONIGIRI).find(x => norm(x) === norm(sb)); return k ? CONTEM_ONIGIRI[k] : ''; };
+
 function htmlOnigiris(ls) {
   const tot = {};
   ls.filter(l => l.tipo === 'Onigiri').forEach(l => { tot[l.sabor] = (tot[l.sabor] || 0) + l.q; });
@@ -299,7 +301,7 @@ function htmlOnigiris(ls) {
     let h = '<div class="pgrade" style="margin-bottom:12px">';
     for (let i = 0; i < tot[sb]; i++) {
       h += '<div class="oni"><div class="s">' + esc(sb.replace(' (vegetariano)', '')) + '</div>' + (sb.indexOf('vegetariano') >= 0 ? '<div class="v">vegetariano</div>' : '') +
-        '<div class="av">' + (CONTEM_ONIGIRI[sb] ? '<b>' + esc(CONTEM_ONIGIRI[sb]) + '</b><br>' : '') + 'Consumir em até 2 dias. Manter a 8 °C ou menos</div></div>';
+        '<div class="av">' + (contemOnigiri(sb) ? '<b>' + esc(contemOnigiri(sb)) + '</b><br>' : '') + 'Consumir em até 2 dias. Manter a 8 °C ou menos</div></div>';
     }
     return h + '</div>';
   }).join('');
@@ -396,9 +398,13 @@ function ligar() {
   if (se) se.onchange = () => { calc.prato = se.value; calc.n = null; desenhar(); };
   const cn = $('#calc-n');
   if (cn) cn.oninput = () => {
-    const v = parseFloat(String(cn.value).replace(',', '.'));
+    const txt = String(cn.value).trim().replace(',', '.');
+    const v = txt === '' ? NaN : Number(txt);
     const p = pratosReceita().find(x => x.prato === calc.prato);
-    if (!(v >= 0) || !p) return;
+    const ruim = !(v >= 0) || !isFinite(v);
+    cn.classList.toggle('inv', ruim);
+    $('#calc-aviso').textContent = ruim ? 'Digite um número, por exemplo 10 ou 2,5.' : '';
+    if (ruim || !p) return;
     calc.n = v; $('#tab-receita').innerHTML = tabelaReceita(p, v);
     document.querySelectorAll('.calc button').forEach(b => b.classList.toggle('on', +b.dataset.n === v));
   };
@@ -441,7 +447,17 @@ $('#form-login').onsubmit = async ev => {
       : 'Não consegui conectar. Confira a internet.';
   }
 };
-document.addEventListener('visibilitychange', () => { if (!document.hidden && pin && !$('#app').hidden) atualizar(true); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => { if (r) r.update(); }).catch(() => {}); // procura versão nova do app
+  if (pin && !$('#app').hidden) atualizar(true);
+});
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  // versão nova do app: o service worker assume e a página recarrega uma vez (não na primeira instalação)
+  const jaTinhaSW = !!navigator.serviceWorker.controller;
+  let recarregou = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (jaTinhaSW && !recarregou) { recarregou = true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 if (pin) entrar(); else $('#login').hidden = false;

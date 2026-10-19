@@ -1,7 +1,7 @@
 // Guarda a "casca" do app para abrir offline. Os dados ficam no localStorage (app.js).
-const CACHE = 'tanuki-v4';
+const CACHE = 'tanuki-v5';
 const CASCA = ['./', 'index.html', 'app.js', 'style.css', 'config.js', 'manifest.webmanifest',
-  'icon-192.png', 'icon-512.png'];
+  'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CASCA)).then(() => self.skipWaiting()));
@@ -18,10 +18,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return; // API: direto na rede
   if (url.pathname.indexOf('/pedido-verao/') >= 0) return; // página dos clientes: nunca guardar cópia
-  // rede primeiro (pega atualizações), cache se estiver sem internet
-  e.respondWith(fetch(req).then(r => {
-    const copia = r.clone();
-    caches.open(CACHE).then(c => c.put(req, copia));
+  // rede primeiro (pega atualizações, ignorando a cópia do navegador), cache se estiver sem internet
+  e.respondWith(fetch(new Request(req, { cache: 'no-cache' })).then(r => {
+    if (r.ok) { const copia = r.clone(); caches.open(CACHE).then(c => c.put(req, copia)); } // erro (404/500) não entra no cache
     return r;
   }).catch(() => caches.match(req).then(r => r || caches.match('./'))));
 });
