@@ -650,7 +650,8 @@ var CFG = {
     h += '<textarea id="pixcod" readonly rows="4" onclick="this.select()">' + esc(codigo) + '</textarea>';
     h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
     h += '<p class="nota">Assim que o Pix cair, confirmamos o pagamento e registramos o pedido (leva de 1 a 2 minutos). Não precisa enviar comprovante. <b>Fique nesta tela.</b></p>';
-    h += '<p class="nota">Se passar de 10 minutos e não confirmar, fale com a gente:</p>' + linkWhats('Paguei e não confirmou', 'Olá! Paguei o Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + ', e ainda não confirmou.');
+    // Só aparece depois de 10 minutos sem confirmar (aguardarPagamento mostra #ajudaPix).
+    h += '<div id="ajudaPix" hidden><p class="nota">Se passar de 10 minutos e não confirmar, fale com a gente:</p>' + linkWhats('Paguei e não confirmou', 'Olá! Paguei o Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + ', e ainda não confirmou.') + '</div>';
     return h + '</div>';
   }
   function copiarPix(b){
@@ -665,11 +666,16 @@ var CFG = {
   // A página pergunta ao serviço a cada 5 s se o pagamento já foi confirmado (o pedido só entra nas planilhas depois disso).
   var pollTimer = null;
   function pararEspera(){ if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+  function mostrarAjuda(ref){
+    var a = $('ajudaPix'); if (a) a.hidden = false;
+    var e = $('aguardando'); if (e) e.textContent = 'Ainda não confirmou. Se já pagou, fale com a gente:';
+  }
   function aguardarPagamento(ref){
     pararEspera();
     var n = 0;
     pollTimer = setInterval(function(){
       n++;
+      if (n === 120) mostrarAjuda(ref);                // 10 minutos sem confirmar: aparece o botão do WhatsApp
       if (n > 600) { pararEspera(); return; }          // 50 minutos
       if (document.hidden && n % 4) return;            // aba em segundo plano: pergunta menos
       fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'pago', ref: ref})})
@@ -829,6 +835,7 @@ var CFG = {
     }
     else if (a === 'reenviar') { b.id = 'btnReenviar'; enviarPedido(true); }
     else if (a === 'copiar') { copiarPix(b); }
+    else if (a === 'novopedido') { try { sessionStorage.removeItem('tanuki_ref_pend'); } catch(e){} pararEspera(); carregar(); }
   });
 
   document.addEventListener('input', function(ev){
@@ -850,7 +857,17 @@ var CFG = {
   } else if (CFG.API_URL.indexOf('COLE_AQUI') === 0) {
     mostrarEstado('<h2>Página ainda não configurada</h2><p>Falta ligar o serviço de pedidos.</p>' + linkForms('Abrir o formulário de pedidos'), 'falha');
   } else {
-    carregar();
+    // Recarregou a página (ex.: voltou do app do banco) com um Pix ainda não confirmado: retoma a espera.
+    var pendPag = ''; try { pendPag = sessionStorage.getItem('tanuki_ref_pend') || ''; } catch(e){}
+    if (pendPag) {
+      var refTxt = pendPag.replace(/[^A-Za-z0-9]/g, '');
+      mostrarEstado('<h2>Aguardando o pagamento</h2><p id="aguardando">Aguardando a confirmação do Pix do pedido <b>' + esc(refTxt) + '</b>…</p>' +
+        '<p class="nota">Se você já pagou, fique nesta tela. Confirma sozinho em 1 a 2 minutos.</p>' +
+        '<div id="ajudaPix" hidden><p class="nota">Se passar de 10 minutos e não confirmar, fale com a gente:</p>' +
+        linkWhats('Paguei e não confirmou', 'Olá! Paguei o Pix do pedido ' + refTxt + ' e ainda não confirmou.') + '</div>' +
+        '<button class="btn sec2" style="margin-top:14px" data-a="novopedido">Fazer um pedido novo</button>', 'aviso');
+      aguardarPagamento(pendPag);
+    } else carregar();
   }
 })();
 </script>
