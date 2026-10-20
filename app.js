@@ -354,9 +354,13 @@ function imprimir(qual) {
   const retirada = (LS.get('tanuki_retirada') || '').trim();
   const corpo = corpoImpressao(qual, linhasEtiqueta(r.linhas), retirada);
   if (!corpo.replace(/<div class="pgrade"[^>]*><\/div>/g, '')) { alert('Nada para imprimir nesta rodada.'); return; }
-  // iPhone com o app aberto pelo ícone: a Apple ignora a impressão aqui. Abre a mesma página numa janela do Safari, com os dados no link.
+  // iPhone com o app aberto pelo ícone: a Apple ignora a impressão e abre qualquer página do app dentro dele mesmo.
+  // Copia um link de impressão (com os dados, sem senha) para o usuário colar no Safari, onde imprimir funciona.
   if (navigator.standalone) {
-    window.open(location.pathname + '?imprimir=' + qual + '#' + encodeURIComponent(JSON.stringify({ l: r.linhas, r: retirada })), '_blank');
+    const link = location.origin + location.pathname + '?imprimir=' + qual + '#' + encodeURIComponent(JSON.stringify({ l: r.linhas, r: retirada }));
+    navigator.clipboard.writeText(link).then(
+      () => alert('No app aberto pelo ícone o iPhone não imprime.\n\nO link de impressão foi copiado. Abra o Safari, toque na barra de endereço, cole e toque em Ir. Lá aparece o botão "Imprimir ou salvar PDF".'),
+      () => alert('No app aberto pelo ícone o iPhone não imprime. Abra ors1a.github.io/tanuki-app no Safari, entre e imprima por lá.'));
     return;
   }
   mostrarImpressao(qual, corpo);
@@ -373,7 +377,8 @@ function paginaImpressao(qual) {
   mostrarImpressao(qual, corpoImpressao(qual, linhasEtiqueta(d.l), d.r || ''));
   const topo = document.createElement('div');
   topo.className = 'naoimprime';
-  topo.innerHTML = '<button class="gerar">Imprimir ou salvar PDF</button><p class="mudo">Na tela de impressão do iPhone, toque em Compartilhar e escolha “Salvar em Arquivos” para ter o PDF.</p>';
+  topo.innerHTML = '<button class="gerar">Imprimir ou salvar PDF</button><p class="mudo">Na tela de impressão do iPhone, toque em Compartilhar e escolha “Salvar em Arquivos” para ter o PDF.</p>' +
+    '<a href="./" class="sair">Voltar ao app</a>';
   topo.querySelector('button').onclick = () => { document.body.classList.add('imprimindo'); window.print(); };
   document.body.insertBefore(topo, document.body.firstChild);
 }
