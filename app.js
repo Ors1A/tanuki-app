@@ -354,18 +354,174 @@ function imprimir(qual) {
   const retirada = (LS.get('tanuki_retirada') || '').trim();
   const corpo = corpoImpressao(qual, linhasEtiqueta(r.linhas), retirada);
   if (!corpo.replace(/<div class="pgrade"[^>]*><\/div>/g, '')) { alert('Nada para imprimir nesta rodada.'); return; }
-  // iPhone com o app aberto pelo ícone: a Apple ignora a impressão e abre qualquer página do app dentro dele mesmo.
-  // Copia um link de impressão (com os dados, sem senha) para o usuário colar no Safari, onde imprimir funciona.
-  if (navigator.standalone) {
-    const link = location.origin + location.pathname + '?imprimir=' + qual + '#' + encodeURIComponent(JSON.stringify({ l: r.linhas, r: retirada }));
-    navigator.clipboard.writeText(link).then(
-      () => alert('No app aberto pelo ícone o iPhone não imprime.\n\nO link de impressão foi copiado. Abra o Safari, toque na barra de endereço, cole e toque em Ir. Lá aparece o botão "Imprimir ou salvar PDF".'),
-      () => alert('No app aberto pelo ícone o iPhone não imprime. Abra ors1a.github.io/tanuki-app no Safari, entre e imprima por lá.'));
-    return;
-  }
+  // iPhone com o app aberto pelo ícone: a Apple ignora a impressão. Gera o PDF e abre a folha de compartilhar.
+  if (navigator.standalone) { gerarPdf(qual, r, retirada); return; }
   mostrarImpressao(qual, corpo);
   document.body.classList.add('imprimindo');
   window.print();
+}
+
+// PDF das etiquetas (A4, mm). Mesmos agrupamentos e textos de htmlComandas, htmlTampas e htmlOnigiris.
+const PDF = { margem: 10, larg: 63, cols: 3 };
+
+// Maior fonte (pt) entre max e min que cabe em larg (mm). Deixa a fonte ajustada no doc.
+function pdfCaber(doc, txt, larg, max, min, estilo) {
+  let fs = max;
+  doc.setFont('helvetica', estilo);
+  doc.setFontSize(fs);
+  while (fs > min && doc.getTextWidth(txt) > larg) { fs -= 0.5; doc.setFontSize(fs); }
+  return fs;
+}
+
+// Linhas tracejadas da grade de corte (linhas x 3 colunas).
+function pdfGrade(doc, altura, linhas) {
+  doc.setDrawColor(150); doc.setLineWidth(0.2); doc.setLineDashPattern([1, 1], 0);
+  for (let r = 0; r < linhas; r++) for (let c = 0; c < PDF.cols; c++)
+    doc.rect(PDF.margem + c * PDF.larg, PDF.margem + r * altura, PDF.larg, altura);
+  doc.setLineDashPattern([], 0); doc.setDrawColor(0);
+}
+
+// Posição da caixa i (começa em 0). Nova página quando a folha enche.
+function pdfCelula(doc, i, porPag, altura) {
+  if (i > 0 && i % porPag === 0) doc.addPage();
+  if (i % porPag === 0) pdfGrade(doc, altura, porPag / PDF.cols);
+  const pos = i % porPag;
+  return { x: PDF.margem + (pos % PDF.cols) * PDF.larg, y: PDF.margem + Math.floor(pos / PDF.cols) * altura };
+}
+
+// Desenha (ou só mede, com desenhar = false) os itens da comanda. Devolve a altura final (mm).
+function pdfComandaItens(doc, p, x, y, fs, desenhar) {
+  const xi = x + 3, w = PDF.larg - 6, lh = fs * 0.4234;
+  const pokes = p.itens.filter(i => i.tipo === 'Poke');
+  let k = 0, yy = y + 17;
+  ['Poke', 'Onigiri', 'Acompanhamento', 'Sobremesa'].forEach(t => {
+    const grupo = p.itens.filter(i => i.tipo === t);
+    if (!grupo.length) return;
+    if (desenhar) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(0);
+      doc.text(t.toUpperCase() + (t === 'Poke' && pokes.length > 1 ? ' (' + pokes.length + ')' : ''), xi, yy);
+      doc.setLineWidth(0.15); doc.line(xi, yy + 1.2, xi + w, yy + 1.2);
+    }
+    yy += 4;
+    grupo.forEach(i => {
+      if (t === 'Poke') k++;
+      const txt = t === 'Poke' ? (pokes.length > 1 ? k + '. ' : '') + i.sabor : i.q + 'x ' + i.sabor;
+      doc.setFont('helvetica', t === 'Poke' ? 'bold' : 'normal'); doc.setFontSize(fs);
+      const linhas = doc.splitTextToSize(txt, w - 4);
+      if (desenhar) {
+        doc.setLineWidth(0.2); doc.rect(xi, yy - fs * 0.25, 2.5, 2.5);
+        linhas.forEach((ln, j) => doc.text(ln, xi + 4, yy + j * lh));
+      }
+      yy += linhas.length * lh;
+      if (t === 'Poke' && i.adic) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+        const la = 7 * 0.4234, ad = doc.splitTextToSize('+ ' + i.adic, w - 4);
+        if (desenhar) { doc.setTextColor(120); ad.forEach((ln, j) => doc.text(ln, xi + 4, yy + j * la)); doc.setTextColor(0); }
+        yy += ad.length * la;
+      }
+      yy += 1.5;
+    });
+  });
+  return yy;
+}
+
+function pdfComanda(doc, p, retirada, x, y) {
+  // a maior fonte de 9 a 6 pt que deixa os itens acima do rodapé (7 mm)
+  const fs = [9, 8.5, 8, 7.5, 7, 6.5, 6].find(f => pdfComandaItens(doc, p, x, y, f, false) <= y + 83) || 6;
+  const xi = x + 3, w = PDF.larg - 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(120);
+  doc.text('TANUKI' + (retirada ? ' · RETIRADA ' + retirada : ''), xi, y + 4);
+  doc.setTextColor(0);
+  pdfCaber(doc, p.nome, w, 13, 9, 'bold');
+  doc.text(p.nome, xi, y + 11);
+  doc.setLineWidth(0.5); doc.line(xi, y + 13, xi + w, y + 13);
+  pdfComandaItens(doc, p, x, y, fs, true);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(120);
+  doc.text('Conferir antes de fechar o saco', x + PDF.larg / 2, y + 86, { align: 'center' });
+  doc.setTextColor(0);
+}
+
+function pdfComandas(doc, ls, retirada) {
+  const pessoas = [];
+  ls.forEach(l => {
+    let p = pessoas.find(x => x.nome.toLowerCase() === l.nome.toLowerCase());
+    if (!p) pessoas.push(p = { nome: l.nome, itens: [] });
+    p.itens.push(l);
+  });
+  pessoas.forEach((p, i) => { const c = pdfCelula(doc, i, 9, 90); pdfComanda(doc, p, retirada, c.x, c.y); });
+}
+
+function pdfTampas(doc, ls) {
+  const cards = ls.filter(l => l.tipo === 'Poke');
+  // uma fonte só para todas as tampas: a maior que cabe no adicional mais comprido (mín. 6 pt)
+  let fs = 12;
+  cards.forEach(l => {
+    if (!l.adic) return;
+    doc.setFont('helvetica', 'normal');
+    let f = 12; doc.setFontSize(f);
+    while (f > 6 && doc.splitTextToSize(l.adic, PDF.larg - 6).length * f * 0.4234 > 14) { f -= 0.5; doc.setFontSize(f); }
+    fs = Math.min(fs, f);
+  });
+  cards.forEach((l, i) => {
+    const c = pdfCelula(doc, i, 24, 33), cx = c.x + PDF.larg / 2;
+    pdfCaber(doc, l.nome, PDF.larg - 6, 11, 7, 'bold');
+    doc.text(l.nome, cx, c.y + 7, { align: 'center' });
+    pdfCaber(doc, 'Poke - ' + l.sabor, PDF.larg - 6, 9, 6, 'normal');
+    doc.text('Poke - ' + l.sabor, cx, c.y + 12.5, { align: 'center' });
+    doc.setLineWidth(0.15); doc.line(c.x + 3, c.y + 15, c.x + PDF.larg - 3, c.y + 15);
+    if (l.adic) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(fs);
+      doc.splitTextToSize(l.adic, PDF.larg - 6).forEach((ln, j) => doc.text(ln, cx, c.y + 19 + j * fs * 0.4234, { align: 'center' }));
+    }
+  });
+}
+
+function pdfOnigiris(doc, ls) {
+  const tot = {};
+  ls.filter(l => l.tipo === 'Onigiri').forEach(l => { tot[l.sabor] = (tot[l.sabor] || 0) + l.q; });
+  let i = 0;
+  Object.keys(tot).forEach(sb => {
+    if (i % 3) i += 3 - (i % 3); // cada sabor começa numa linha nova
+    const nome = sb.replace(' (vegetariano)', ''), aviso = contemOnigiri(sb);
+    for (let n = 0; n < tot[sb]; n++, i++) {
+      const c = pdfCelula(doc, i, 27, 28), cx = c.x + PDF.larg / 2;
+      let yy = c.y + 7;
+      pdfCaber(doc, nome, PDF.larg - 6, 12, 8, 'bold');
+      doc.text(nome, cx, yy, { align: 'center' });
+      yy += 4;
+      if (sb.indexOf('vegetariano') >= 0) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+        doc.text('vegetariano', cx, yy, { align: 'center' }); yy += 3;
+      }
+      doc.setFontSize(7);
+      if (aviso) {
+        doc.setFont('helvetica', 'bold');
+        doc.splitTextToSize(aviso, PDF.larg - 6).forEach(ln => { doc.text(ln, cx, yy, { align: 'center' }); yy += 2.96; });
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.splitTextToSize('Consumir em até 2 dias. Manter a 8 °C ou menos', PDF.larg - 6).forEach(ln => { doc.text(ln, cx, yy, { align: 'center' }); yy += 2.96; });
+    }
+  });
+}
+
+// Gera o PDF e entrega pelo Compartilhar do aparelho (no iPhone: Salvar em Arquivos). Sem Compartilhar, baixa o arquivo.
+async function gerarPdf(qual, r, retirada) {
+  if (!window.jspdf) { alert('Não consegui gerar o PDF. Tente de novo.'); return; }
+  try {
+    const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+    const ls = linhasEtiqueta(r.linhas);
+    if (qual === 'tampas') pdfTampas(doc, ls);
+    else if (qual === 'onigiris') pdfOnigiris(doc, ls);
+    else pdfComandas(doc, ls, retirada);
+    const nome = 'tanuki-' + qual + '.pdf';
+    const file = new File([doc.output('blob')], nome, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: nome }); }
+      catch (e) { if (e.name !== 'AbortError') throw e; } // cancelar o compartilhar não é erro
+    } else doc.save(nome);
+  } catch (e) {
+    alert('Não consegui gerar o PDF. Tente de novo.');
+  }
 }
 
 // Página só de impressão (aberta pelo iPhone): monta as etiquetas a partir do link, sem senha e sem buscar dados.
