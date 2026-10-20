@@ -335,20 +335,47 @@ function ajustarTampas() {
   as.forEach(a => { a.style.fontSize = melhor + 'px'; });
 }
 
-function imprimir(qual) {
-  const r = rodadaAtual();
-  if (!r) return;
-  const ls = linhasEtiqueta(r.linhas);
-  const corpo = qual === 'tampas' ? htmlTampas(ls) : qual === 'onigiris' ? htmlOnigiris(ls) : htmlComandas(ls, (LS.get('tanuki_retirada') || '').trim());
-  if (!corpo.replace(/<div class="pgrade"[^>]*><\/div>/g, '')) { alert('Nada para imprimir nesta rodada.'); return; }
+function corpoImpressao(qual, ls, retirada) {
+  return qual === 'tampas' ? htmlTampas(ls) : qual === 'onigiris' ? htmlOnigiris(ls) : htmlComandas(ls, retirada);
+}
+
+function mostrarImpressao(qual, corpo) {
   let el = $('#impressao');
   if (!el) { el = document.createElement('div'); el.id = 'impressao'; document.body.appendChild(el); }
   el.innerHTML = corpo;
   document.body.classList.add('medindo'); // mostra fora da tela só para medir as tampas
   if (qual === 'tampas') ajustarTampas();
   document.body.classList.remove('medindo');
+}
+
+function imprimir(qual) {
+  const r = rodadaAtual();
+  if (!r) return;
+  const retirada = (LS.get('tanuki_retirada') || '').trim();
+  const corpo = corpoImpressao(qual, linhasEtiqueta(r.linhas), retirada);
+  if (!corpo.replace(/<div class="pgrade"[^>]*><\/div>/g, '')) { alert('Nada para imprimir nesta rodada.'); return; }
+  // iPhone com o app aberto pelo ícone: a Apple ignora a impressão aqui. Abre a mesma página numa janela do Safari, com os dados no link.
+  if (navigator.standalone) {
+    window.open(location.pathname + '?imprimir=' + qual + '#' + encodeURIComponent(JSON.stringify({ l: r.linhas, r: retirada })), '_blank');
+    return;
+  }
+  mostrarImpressao(qual, corpo);
   document.body.classList.add('imprimindo');
   window.print();
+}
+
+// Página só de impressão (aberta pelo iPhone): monta as etiquetas a partir do link, sem senha e sem buscar dados.
+function paginaImpressao(qual) {
+  let d = null;
+  try { d = JSON.parse(decodeURIComponent(location.hash.slice(1))); } catch (e) { /* link quebrado */ }
+  if (!d || !Array.isArray(d.l)) { document.body.textContent = 'Link de impressão inválido. Volte ao app e toque de novo.'; return; }
+  document.body.classList.add('sopagina');
+  mostrarImpressao(qual, corpoImpressao(qual, linhasEtiqueta(d.l), d.r || ''));
+  const topo = document.createElement('div');
+  topo.className = 'naoimprime';
+  topo.innerHTML = '<button class="gerar">Imprimir ou salvar PDF</button><p class="mudo">Na tela de impressão do iPhone, toque em Compartilhar e escolha “Salvar em Arquivos” para ter o PDF.</p>';
+  topo.querySelector('button').onclick = () => { document.body.classList.add('imprimindo'); window.print(); };
+  document.body.insertBefore(topo, document.body.firstChild);
 }
 window.addEventListener('afterprint', () => document.body.classList.remove('imprimindo'));
 
@@ -491,4 +518,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (jaTinhaSW && !recarregou) { recarregou = true; location.reload(); } });
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
-if (pin) entrar(); else $('#login').hidden = false;
+const qualImprimir = new URLSearchParams(location.search).get('imprimir');
+if (qualImprimir) paginaImpressao(qualImprimir);
+else if (pin) entrar(); else $('#login').hidden = false;

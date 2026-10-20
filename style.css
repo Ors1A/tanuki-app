@@ -97,3 +97,5 @@ body.medindo #impressao{display:block;position:absolute;left:-9999px;top:0;width
 }
 details.todos{margin-top:12px}details.todos summary{cursor:pointer;padding:6px 0}
 .gerar{width:100%;padding:12px;border:0;border-radius:10px;background:var(--laranja);color:#fff;font-weight:700;margin-bottom:12px}.gerar:disabled{opacity:.6}
+body.sopagina #login,body.sopagina #app{display:none!important}body.sopagina #impressao{display:block;padding:0 12px 12px;overflow-x:auto}body.sopagina .naoimprime{padding:12px}
+@media print{body .naoimprime{display:none!important}body.sopagina #impressao{padding:0}}
