@@ -708,7 +708,7 @@ var CFG = {
     try { sessionStorage.setItem('tanuki_ref_pend', res.ref); } catch(e){}
     $('tela').innerHTML = '<div class="msg ok"><h2>Estamos quase lá!</h2><p><b>Falta só o pagamento.</b> ' + (modo ? 'Seu complemento' : 'Seu pedido') + ' só é registrado quando o pagamento for confirmado.</p>' +
       '<div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) +
-      '<p class="nota" id="aguardando" style="margin-top:12px">⏳ Aguardando a confirmação do pagamento…</p>' +
+      '<p class="nota" id="aguardando" style="margin-top:12px">⏳ Aguardando o Pix… (leva de 1 a 2 minutos)</p>' +
       '<ul class="resumo">' + resumoItens() + '</ul></div>';
     aguardarPagamento(res.ref);
     window.scrollTo({top: 0, behavior: 'smooth'});
