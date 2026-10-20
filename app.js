@@ -363,9 +363,26 @@ function htmlImprimir(r) {
     '<p class="mudo">Abre a impressão do aparelho. No computador ou Android, escolha “Salvar como PDF”. No iPhone, use o botão de compartilhar da tela de impressão.</p></div>';
 }
 
+// Pede ao serviço de pedidos para refazer a aba "Etiquetas Impressão" (leva ativa, só pedidos pagos) e recarrega a lista.
+async function gerarEtiquetas() {
+  const b = $('#btn-gerar-etq');
+  b.disabled = true; b.textContent = 'Gerando…';
+  try {
+    const j = await (await fetch(window.TANUKI_SERVICO + '?acao=etiquetas', { redirect: 'follow' })).json();
+    if (!j.ok) throw new Error('servico');
+    rodadaSel = 0;
+    await atualizar(false);
+    $('#status').textContent += ' · ' + j.linhas + ' etiquetas geradas';
+  } catch (e) {
+    alert('Não consegui gerar as etiquetas. Confira a internet e tente de novo.');
+    desenhar();
+  }
+}
+
 function telaEtiquetas() {
   const abas = dados.etiquetas || [];
-  if (!abas.length) return '<p class="mudo">Nenhuma aba de etiquetas encontrada nas planilhas de pedidos.</p>';
+  const gerar = '<button class="gerar" id="btn-gerar-etq">Gerar etiquetas da leva ativa</button>';
+  if (!abas.length) return gerar + '<p class="mudo">Nenhuma aba de etiquetas encontrada nas planilhas de pedidos.</p>';
   const lista = abas.slice().reverse();
   if (rodadaSel >= lista.length) rodadaSel = 0;
   const r = lista[rodadaSel];
@@ -384,7 +401,7 @@ function telaEtiquetas() {
     return '<div class="card etq"><div><b>' + esc(l[0]) + '</b>' + esc(l[2]) + '<br>' + extras + '</div>' +
       '<div>' + (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(l[1]) + '</a>' : esc(l[1])) + '</div></div>';
   }).join('');
-  return sel + (novo ? htmlResumo(resumoEtiquetas(r.linhas)) + htmlImprimir(r) : '') + '<input type="search" id="busca-etq" placeholder="Buscar cliente, item…" value="' + esc(busca.etq) + '">' +
+  return gerar + sel + (novo ? htmlResumo(resumoEtiquetas(r.linhas)) + htmlImprimir(r) : '') + '<input type="search" id="busca-etq" placeholder="Buscar cliente, item…" value="' + esc(busca.etq) + '">' +
     '<p class="mudo">' + r.linhas.length + ' etiquetas · ' + clientes + ' clientes' + (q ? ' · ' + linhas.length + ' na busca' : '') + '</p>' +
     (itens || '<p class="mudo">Nada encontrado.</p>');
 }
@@ -424,6 +441,8 @@ function ligar() {
   const rt = $('#ret');
   if (rt) rt.oninput = () => LS.set('tanuki_retirada', rt.value);
   document.querySelectorAll('[data-imp]').forEach(b => b.onclick = () => imprimir(b.dataset.imp));
+  const bg = $('#btn-gerar-etq');
+  if (bg) bg.onclick = gerarEtiquetas;
   const sr = $('#sel-rodada');
   if (sr) sr.onchange = () => { rodadaSel = +sr.value; desenhar(); };
   const be = $('#busca-etq');
