@@ -190,9 +190,10 @@ var CFG = {
   var extras = {acomp:{}, sob:{}};   // acompanhamentos do onigiri e sobremesas: {chave: qtd}
   // Telas: 'dados' | 'u<i>a' (poke: sabor) | 'u<i>b' (poke: adicionais) | 'u<i>' (onigiri) | 'acomp' | 'sob' | 'final'
   var tela = 'dados';
+  var exPokes = {}, exN = 0;   // adicionais a acrescentar em pokes já pedidos: {nº do poke: {chave: qtd}}; poke aberto na tela 'ex'
   var enviando = false;
   // Modo complemento: {ref, tel, info} depois de achar o pedido (número + telefone). null = pedido novo.
-  var modo = null, idComp = null, ultimaRes = null;
+  var modo = null, idComp = null, ultimaRes = null, msgVin = '';
   var pendRef = '', substituiRef = '';   // pedido ainda não pago do mesmo telefone / pedido que o novo vai substituir
   var retirada = '';   // texto da retirada, da aba Configuração (via ?acao=cardapio)
   function frase(){ return retirada ? 'Retirada: <b>' + esc(retirada) + '</b>.' : 'Combinaremos a retirada com você pelo WhatsApp.'; }
@@ -292,6 +293,7 @@ var CFG = {
     if (tela === 'dados') el.innerHTML = htmlDados();
     else if (tela === 'acesso') el.innerHTML = htmlAcesso();
     else if (tela === 'comp') el.innerHTML = htmlComp();
+    else if (tela === 'ex') el.innerHTML = htmlExtras();
     else if (tela === 'final') el.innerHTML = htmlFinal();
     else if (tela === 'acomp') el.innerHTML = htmlAcomp();
     else if (tela === 'sob') el.innerHTML = htmlSobremesa();
@@ -335,6 +337,16 @@ var CFG = {
     i.adicionais.forEach(function(x){ li += '<li>+ ' + x.qtd + '× ' + esc(x.nome) + ' <small>(' + esc(x.em) + ')</small></li>'; });
     h += '<div class="card"><div class="sec">O que você pediu</div><ul class="resumo">' + li + '</ul><div class="valor">' + brl(i.total) + '</div>';
     h += '<p class="nota">Pagamento: <b>' + (String(i.status).indexOf('aprovado') === 0 ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
+    if (String(i.status).indexOf('aprovado') === 0 && (i.pokes || []).length) {
+      h += '<div class="card"><div class="sec">Seus pokes</div>' + (msgVin ? '<p class="nota"><b>' + esc(msgVin) + '</b></p>' : '') + '<ul class="resumo">';
+      i.pokes.forEach(function(k){
+        var ads = (k.adicionais || []).map(function(x){ return qtdTxt(x.qtd) + esc(x.nome); }).join(', ');
+        h += '<li><b>Poke ' + k.n + '</b> · ' + esc(String(k.nome).replace(/^Poke /, '')) + ' · ' + (k.vinagrete ? 'com vinagrete' : 'sem vinagrete') + (ads ? '<br><small>Adicionais: ' + ads + '</small>' : '') +
+          (k.vinagrete ? '' : '<br><button class="btn sec2" style="margin-top:6px" data-a="vinadd" data-n="' + k.n + '">Adicionar vinagrete (grátis)</button>') +
+          (i.podeComplementar ? '<br><button class="btn sec2" style="margin-top:6px" data-a="addex" data-n="' + k.n + '">' + (exPokes[k.n] && Object.keys(exPokes[k.n]).length ? 'Editar adicionais novos' : 'Adicionar adicionais (pagos à parte)') + '</button>' : '') + '</li>';
+      });
+      h += '</ul>' + (temExtras() ? '<div class="acoes"><button class="btn prim" data-a="exok">Pagar adicionais · ' + brl(totalExtras()) + '</button></div>' : '') + '</div>';
+    }
     if (i.complementos.length) {
       h += '<div class="card"><div class="sec">Complementos</div><ul class="resumo">';
       i.complementos.forEach(function(c){ h += '<li><b>' + esc(c.ref) + '</b> · ' + brl(c.total) + ' · ' + (String(c.status).indexOf('aprovado') === 0 ? 'pago' : esc(c.status)) + '</li>'; });
@@ -352,6 +364,31 @@ var CFG = {
       h += '<div class="msg aviso"><p>' + (i.prazo ? 'Este pedido já tem o máximo de complementos.' : 'O prazo para adicionar itens acabou.') + ' Para alterações, fale com a gente pelo WhatsApp.</p>' +
         linkWhats('Falar com a gente no WhatsApp', 'Olá! Quero alterar o pedido ' + i.ref + '.') + '</div>';
     }
+    return h;
+  }
+
+  // Adicionais novos em pokes já pedidos
+  function temExtras(){ return !!modo && Object.keys(exPokes).some(function(n){ return Object.keys(exPokes[n]).length; }); }
+  function totalExtras(){
+    var t = 0;
+    if (modo) Object.keys(exPokes).forEach(function(n){ CFG.ADICIONAIS.forEach(function(a){ t += a.p * (exPokes[n][a.k] || 0); }); });
+    return Math.round(t * 100) / 100;
+  }
+  // quanto ainda cabe de um adicional no poke exN (o limite conta o que o poke já tem)
+  function exMax(a){
+    var k = modo.info.pokes.filter(function(x){ return x.n === exN; })[0], ja = 0;
+    ((k && k.adicionais) || []).forEach(function(x){ if (x.nome === CFG.NOMES.ADICIONAIS[a.k]) ja += x.qtd; });
+    return Math.max(0, a.max - ja);
+  }
+  function htmlExtras(){
+    var h = '<div class="topo"><h2>Poke ' + exN + ' · adicionais</h2></div><button class="link" data-a="ircomp" style="padding-left:0">← Voltar</button>';
+    h += '<p class="sub">Só dá para acrescentar. Os adicionais novos são pagos à parte.</p><div class="card">';
+    var sub = function(a){ return a.por + ' · +' + brl(a.p); }, cur = exPokes[exN] || {};
+    h += '<div class="sec">Proteínas extras</div>';
+    CFG.ADICIONAIS.filter(function(a){ return a.prot; }).forEach(function(a){ h += passoQtd('ex', a.k, a.nome, sub(a), cur[a.k] || 0, exMax(a)); });
+    h += '<div class="sec">Outros adicionais</div>';
+    CFG.ADICIONAIS.filter(function(a){ return !a.prot; }).forEach(function(a){ h += passoQtd('ex', a.k, a.nome, sub(a), cur[a.k] || 0, exMax(a)); });
+    h += '</div><div class="acoes"><button class="btn prim" data-a="ircomp">Concluir</button></div>';
     return h;
   }
 
@@ -421,6 +458,10 @@ var CFG = {
   function qtdTxt(q){ return q > 1 ? q + '× ' : ''; }
   function resumoItens(){
     var l = '';
+    if (modo) Object.keys(exPokes).forEach(function(n){
+      var ads = CFG.ADICIONAIS.filter(function(a){ return exPokes[n][a.k]; }).map(function(a){ return qtdTxt(exPokes[n][a.k]) + a.nome; });
+      if (ads.length) l += '<li><b>Poke ' + n + ' (já pedido)</b> · + ' + esc(ads.join(', ')) + '</li>';
+    });
     units.forEach(function(u, i){
       if (u.t === 'poke') {
         var ads = CFG.ADICIONAIS.filter(function(a){ return u.ad[a.k]; }).map(function(a){ return qtdTxt(u.ad[a.k]) + a.nome; });
@@ -436,7 +477,7 @@ var CFG = {
 
   // Total do pedido, só para mostrar na tela "Quase lá". Quem vale é o total do serviço (validar_).
   function totalPedido(){
-    var t = 0;
+    var t = totalExtras();
     units.forEach(function(u){
       if (u.t === 'poke') {
         t += precoDe(CFG.SABORES, u.sabor);
@@ -525,12 +566,25 @@ var CFG = {
         clearTimeout(t); enviando = false;
         if (j && j.ok === true && j.pendente) { dados.tel = tel; pendente({pendente: {ref: j.ref, total: j.total, data: ''}}); return; }
         if (j && j.ok === true) {
-          modo = {ref: j.ref, tel: tel, info: j};
+          modo = {ref: j.ref, tel: tel, info: j}; exPokes = {};
           idComp = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.random().toString(36).slice(2));
           ir('comp');
         } else erro((j && j.mensagem) || 'Não encontramos esse pedido. Confira o número e o telefone.');
       })
       .catch(function(){ clearTimeout(t); enviando = false; erro('Não conseguimos consultar agora. Tente de novo.'); });
+  }
+  // Liga o vinagrete (grátis) num poke de pedido aprovado e recarrega o pedido.
+  function adicionarVinagrete(n, b){
+    var ctl = new AbortController(), t = setTimeout(function(){ ctl.abort(); }, 30000);
+    var volta = function(m){ clearTimeout(t); enviando = false; b.disabled = false; alert(m); };
+    fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'vinagrete', ref: modo.ref, telefone: modo.tel, poke: n}), signal: ctl.signal})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        clearTimeout(t);
+        if (j && j.ok === true) { msgVin = 'Vinagrete incluído no poke ' + n; consultarPedido(modo.ref, modo.tel, volta); }
+        else volta((j && j.mensagem) || 'Não foi possível adicionar agora. Tente de novo.');
+      })
+      .catch(function(){ volta('Não conseguimos agora. Tente de novo.'); });
   }
   // Devolve ao formulário o que o cliente tinha escolhido (vem do serviço, nos mesmos nomes que a página usa).
   function carregarCorpo(c){
@@ -541,7 +595,7 @@ var CFG = {
     Object.keys(on).forEach(function(k){ if (on[k] > 0) units.push({t:'oni', sabor:k, qtd:+on[k]}); });
     extras = {acomp: soPositivos(c.acompanhamentos || {}), sob: soPositivos(c.sobremesas || {})};
     dados.nome = c.nome || dados.nome; dados.tel = c.telefone || dados.tel; dados.obs = c.obs || ''; dados.ciente = false;
-    modo = null;
+    modo = null; exPokes = {};
     idPedido = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('p' + Date.now() + Math.random().toString(36).slice(2));
     try { sessionStorage.setItem('tanuki_id_pedido', idPedido); } catch(e){}
   }
@@ -730,6 +784,7 @@ var CFG = {
         sobremesas: soPositivos(extras.sob)
       };
       if (substituiRef && !modo) corpo.substitui = substituiRef;
+      if (modo) corpo.extrasPokes = Object.keys(exPokes).map(function(n){ return {poke: +n, adicionais: soPositivos(exPokes[n])}; }).filter(function(x){ return Object.keys(x.adicionais).length; });
       if (modo) { delete corpo.nome; corpo.acao = 'complemento'; corpo.ref = modo.ref; corpo.telefone = modo.tel; corpo.id = idComp; corpo.origem = 'complemento'; }
     }
     ultimoCorpo = corpo;
@@ -775,7 +830,7 @@ var CFG = {
       var d2 = dadosOk(); $('g-nome').classList.toggle('tem-erro', !d2.nome); $('g-tel').classList.toggle('tem-erro', !d2.tel);
       if (d2.ok) ir(primeiraTela(units.length - 1));
     }
-    else if (a === 'voltar') { var ps = passos(), at = ps.indexOf(tela); ir(at > 0 ? ps[at - 1] : (modo ? 'comp' : 'dados')); }
+    else if (a === 'voltar') { var ps = passos(), at = ps.indexOf(tela); if (modo && !units.length && temExtras()) { ir('comp'); return; } ir(at > 0 ? ps[at - 1] : (modo ? 'comp' : 'dados')); }
     else if (a === 'remover') {
       units.splice(iu, 1);
       ir(units.length ? primeiraTela(Math.min(iu, units.length - 1)) : (modo ? 'comp' : 'dados'));
@@ -788,9 +843,10 @@ var CFG = {
       // − / + dos adicionais com quantidade, acompanhamentos e sobremesa
       var g = b.getAttribute('data-g'), kq = b.getAttribute('data-k');
       var lista = g === 'ad' ? CFG.ADICIONAIS : g === 'acomp' ? CFG.ACOMP : CFG.SOBREMESAS;
-      var alvo = g === 'ad' ? u.ad : extras[g];
+      if (g === 'ex') { lista = CFG.ADICIONAIS; exPokes[exN] = exPokes[exN] || {}; }
+      var alvo = g === 'ad' ? (u && u.ad) : g === 'ex' ? exPokes[exN] : extras[g];
       var item = lista.filter(function(x){ return x.k === kq; })[0]; if (!item || !alvo) return;
-      var nq = Math.max(0, Math.min(item.max, (alvo[kq] || 0) + (+b.getAttribute('data-d'))));
+      var nq = Math.max(0, Math.min(g === 'ex' ? exMax(item) : item.max, (alvo[kq] || 0) + (+b.getAttribute('data-d'))));
       if (nq) alvo[kq] = nq; else delete alvo[kq];
       render();
     }
@@ -818,14 +874,18 @@ var CFG = {
     else if (a === 'outro') { ultimoCorpo.ignorarPendente = true; enviarPedido(true); }
     else if (a === 'segundo') { ultimoCorpo.segundoPedido = true; enviarPedido(true); }
     else if (a === 'acessar') { ir('acesso'); }
-    else if (a === 'voltardados') { modo = null; refPre = ''; ir('dados'); }
+    else if (a === 'voltardados') { modo = null; exPokes = {}; refPre = ''; ir('dados'); }
+    else if (a === 'vinadd') { b.disabled = true; enviando = true; msgVin = ''; adicionarVinagrete(+b.getAttribute('data-n'), b); }
+    else if (a === 'addex') { exN = +b.getAttribute('data-n'); ir('ex'); }
+    else if (a === 'ircomp') { ir('comp'); }
+    else if (a === 'exok') { ir('final'); }
     else if (a === 'continuarc') { ir(primeiraTela(units.length - 1)); }
     else if (a === 'consultar' || a === 'atualizar') {
       var rr = a === 'atualizar' ? modo.ref : ($('refc').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), tt = a === 'atualizar' ? modo.tel : dados.tel, er = $('erro-acesso');
       var mostra = function(m){ if (er) { er.textContent = m; er.style.display = 'block'; } else alert(m); b.disabled = false; };
       if (a === 'consultar' && (!rr || !foneOk(tt))) { mostra(!rr ? 'Informe o número do pedido.' : 'Telefone inválido. Use DDD + número.'); return; }
       b.disabled = true; enviando = true;
-      consultarPedido(rr, tt, mostra);
+      msgVin = ''; consultarPedido(rr, tt, mostra);
     }
     else if (a === 'complementar') {
       // depois do pagamento do pedido novo: entra no modo complemento com o número e o telefone que acabaram de ser usados
@@ -835,7 +895,7 @@ var CFG = {
     }
     else if (a === 'reenviar') { b.id = 'btnReenviar'; enviarPedido(true); }
     else if (a === 'copiar') { copiarPix(b); }
-    else if (a === 'novopedido') { try { sessionStorage.removeItem('tanuki_ref_pend'); } catch(e){} pararEspera(); carregar(); }
+    else if (a === 'novopedido') { exPokes = {}; try { sessionStorage.removeItem('tanuki_ref_pend'); } catch(e){} pararEspera(); carregar(); }
   });
 
   document.addEventListener('input', function(ev){
