@@ -342,8 +342,8 @@ var CFG = {
       i.pokes.forEach(function(k){
         var ads = (k.adicionais || []).map(function(x){ return qtdTxt(x.qtd) + esc(x.nome); }).join(', ');
         h += '<li><b>Poke ' + k.n + '</b> · ' + esc(String(k.nome).replace(/^Poke /, '')) + ' · ' + (k.vinagrete ? 'com vinagrete' : 'sem vinagrete') + (ads ? '<br><small>Adicionais: ' + ads + '</small>' : '') +
-          (k.vinagrete ? '' : '<br><button class="btn sec2" style="margin-top:6px" data-a="vinadd" data-n="' + k.n + '">Adicionar vinagrete (grátis)</button>') +
-          (i.podeComplementar ? '<br><button class="btn sec2" style="margin-top:6px" data-a="addex" data-n="' + k.n + '">' + (exPokes[k.n] && Object.keys(exPokes[k.n]).length ? 'Editar adicionais novos' : 'Adicionar adicionais (pagos à parte)') + '</button>' : '') + '</li>';
+          (k.vinagrete || !i.prazo ? '' : '<br><button class="btn sec2" style="margin-top:6px" data-a="vinadd" data-n="' + k.n + '">Adicionar vinagrete (grátis)</button>') +
+          (i.podeComplementar ? '<br><button class="btn sec2" style="margin-top:6px" data-a="addex" data-n="' + k.n + '">' + (exPokes[k.n] && Object.keys(exPokes[k.n]).length ? 'Editar adicionais novos' : 'Incluir novos adicionais (pagos à parte)') + '</button>' : '') + '</li>';
       });
       h += '</ul>' + (temExtras() ? '<div class="acoes"><button class="btn prim" data-a="exok">Pagar adicionais · ' + brl(totalExtras()) + '</button></div>' : '') + '</div>';
     }
@@ -558,7 +558,7 @@ var CFG = {
     return '<a class="btn sec2" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/' + CFG.WHATSAPP + '?text=' + encodeURIComponent(msg) + '">' + txt + '</a>';
   }
   // Consulta o pedido (número + telefone). Em caso de sucesso entra no modo complemento.
-  function consultarPedido(ref, tel, erro){
+  function consultarPedido(ref, tel, erro, manter){
     var ctl = new AbortController(), t = setTimeout(function(){ ctl.abort(); }, 30000);
     fetch(CFG.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({acao:'consultar', ref: ref, telefone: tel}), signal: ctl.signal})
       .then(function(r){ return r.json(); })
@@ -566,7 +566,7 @@ var CFG = {
         clearTimeout(t); enviando = false;
         if (j && j.ok === true && j.pendente) { dados.tel = tel; pendente({pendente: {ref: j.ref, total: j.total, data: ''}}); return; }
         if (j && j.ok === true) {
-          modo = {ref: j.ref, tel: tel, info: j}; exPokes = {};
+          modo = {ref: j.ref, tel: tel, info: j}; if (!manter) exPokes = {}; // manter: recarga depois do vinagrete não apaga os adicionais escolhidos
           idComp = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.random().toString(36).slice(2));
           ir('comp');
         } else erro((j && j.mensagem) || 'Não encontramos esse pedido. Confira o número e o telefone.');
@@ -581,7 +581,7 @@ var CFG = {
       .then(function(r){ return r.json(); })
       .then(function(j){
         clearTimeout(t);
-        if (j && j.ok === true) { msgVin = 'Vinagrete incluído no poke ' + n; consultarPedido(modo.ref, modo.tel, volta); }
+        if (j && j.ok === true) { msgVin = 'Vinagrete incluído no poke ' + n; consultarPedido(modo.ref, modo.tel, volta, true); }
         else volta((j && j.mensagem) || 'Não foi possível adicionar agora. Tente de novo.');
       })
       .catch(function(){ volta('Não conseguimos agora. Tente de novo.'); });
