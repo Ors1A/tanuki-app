@@ -33,9 +33,9 @@ O Drive é a fonte; este repositório é a cópia publicada. Quando o trabalho c
 
 | No Drive (`Tanuki/`) | Neste repositório |
 |---|---|
-| `_publicar/app-raiz/` (index.html, app.js, sw.js) | raiz |
-| `pwa-tanuki/` (style.css, config.js, manifest, `icons/`) | raiz (ícones sem a pasta `icons/`) |
-| `_publicar/pedido-verao/` | `pedido-verao/` |
+| `70 Sistemas/_publicar/app-raiz/` (index.html, app.js, sw.js) | raiz |
+| `70 Sistemas/pwa-tanuki/` (style.css, config.js, manifest, `icons/`) | raiz (ícones sem a pasta `icons/`) |
+| `70 Sistemas/_publicar/pedido-verao/` | `pedido-verao/` |
 
 Nunca publicar `SENHA-DO-PWA.txt`, `LEIA-ME.md`, scripts `.gs`, testes `.js` ou o `.json` de teste: eles ficam só no Drive.
 

@@ -1,0 +1,23 @@
+# Só no Drive, nunca vão ao ar
+SENHA-DO-PWA.txt
+LEIA-ME.md
+*.gs
+# Testes em JS
+*.test.js
+*-test.js
+*_test.js
+test.js
+teste.js
+teste*.js
+test-*.js
+# JSON de teste (não pega manifest.webmanifest)
+*.test.json
+*-test.json
+test*.json
+teste*.json
+# Segredos
+.env
+.env.*
+*.env
+# Pastas antigas
+_antigo-*/
