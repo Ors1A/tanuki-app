@@ -321,10 +321,10 @@ var CFG = {
   // Acesso a um pedido já feito: número + telefone (o telefone nunca vai na URL).
   function htmlAcesso(){
     var h = '<div class="topo"><h2>Seu pedido</h2></div><button class="link" data-a="voltardados" style="padding-left:0">← Voltar</button>';
-    h += '<div class="card"><div class="campo-grupo"><label class="campo" for="refc">Número do pedido</label><input id="refc" type="text" autocapitalize="characters" placeholder="TNK..." maxlength="12" value="' + esc(refPre) + '"></div>';
+    h += '<div class="card"><div class="campo-grupo"><label class="campo" for="refc">Número do pedido (se tiver)</label><input id="refc" type="text" autocapitalize="characters" placeholder="TNK..." maxlength="12" value="' + esc(refPre) + '"></div>';
     h += '<div class="campo-grupo" id="g-tel"><label class="campo" for="tel">Telefone usado no pedido</label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(49) 99999-9999" maxlength="20" value="' + esc(dados.tel) + '"></div>';
     h += '<div class="erro-campo" id="erro-acesso" style="display:none"></div>';
-    h += '<p class="nota">O número do pedido aparece na confirmação (começa com TNK).</p></div>';
+    h += '<p class="nota">Ainda não pagou? Basta o telefone. Se já pagou, informe também o número do pedido, que aparece na confirmação (começa com TNK).</p></div>';
     h += '<div class="acoes"><button class="btn prim" data-a="consultar">Ver meu pedido</button></div>';
     return h;
   }
@@ -572,7 +572,7 @@ var CFG = {
       .then(function(r){ return r.json(); })
       .then(function(j){
         clearTimeout(t); enviando = false;
-        if (j && j.ok === true && j.pendente) { dados.tel = tel; pendente({pendente: {ref: j.ref, total: j.total, data: ''}}); return; }
+        if (j && j.ok === true && j.pendente) { dados.tel = tel; pendente({pendente: {ref: j.ref, total: j.total, data: j.data || ''}}); return; }
         if (j && j.ok === true) {
           modo = {ref: j.ref, tel: tel, info: j}; if (!manter) exPokes = {}; // manter: recarga depois do vinagrete não apaga os adicionais escolhidos
           idComp = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('c' + Date.now() + Math.random().toString(36).slice(2));
@@ -893,7 +893,7 @@ var CFG = {
     else if (a === 'consultar' || a === 'atualizar') {
       var rr = a === 'atualizar' ? modo.ref : ($('refc').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), tt = a === 'atualizar' ? modo.tel : dados.tel, er = $('erro-acesso');
       var mostra = function(m){ if (er) { er.textContent = m; er.style.display = 'block'; } else alert(m); b.disabled = false; };
-      if (a === 'consultar' && (!rr || !foneOk(tt))) { mostra(!rr ? 'Informe o número do pedido.' : 'Telefone inválido. Use DDD + número.'); return; }
+      if (a === 'consultar' && !foneOk(tt)) { mostra('Telefone inválido. Use DDD + número.'); return; }
       b.disabled = true; enviando = true;
       msgVin = ''; consultarPedido(rr, tt, mostra);
     }
