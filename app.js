@@ -11,7 +11,7 @@ let dados = null;
 let aba = 'dashboard';
 let busca = { etq: '', custo: '' };
 let rodadaSel = 0;
-let calc = { prato: '', n: null };
+let calc = { prato: '', n: null, preparo: null, porcoes: null };
 
 // ---------- utilidades ----------
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -62,12 +62,13 @@ function sair() {
 
 // ---------- telas ----------
 function desenhar() {
-  if (dados && !dados.producao && aba === 'producao') aba = 'dashboard';
+  if (dados && !dados.producao && (aba === 'producao' || aba === 'compras')) aba = 'dashboard';
   $('[data-aba="producao"]').hidden = !(dados && dados.producao); // só aparece quando o Apps Script envia os pedidos
+  $('[data-aba="compras"]').hidden = !(dados && dados.producao);
   document.querySelectorAll('#abas button').forEach(b => b.classList.toggle('ativa', b.dataset.aba === aba));
   if (!dados) return;
   const tela = $('#tela');
-  tela.innerHTML = aba === 'dashboard' ? telaDashboard() : aba === 'receitas' ? telaReceitas() : aba === 'producao' ? telaProducao()
+  tela.innerHTML = aba === 'dashboard' ? telaDashboard() : aba === 'receitas' ? telaReceitas() : aba === 'producao' ? telaProducao() : aba === 'compras' ? telaCompras()
     : aba === 'etiquetas' ? telaEtiquetas() : telaCustos();
   ligar();
 }
@@ -132,8 +133,76 @@ function telaReceitas() {
   return '<select id="sel-receita"><option value="">Selecione uma receita…</option>' + opts + '</select>' + painelReceita(p);
 }
 
+// ---------- receita de um item de preparo (recheio, su, ponzu): ajuste só na hora, nada é salvo ----------
+const TC = window.TanukiCalc;
+const prepDe = i => (i && i.preparo && dados.preparos) ? dados.preparos[TC.norm(i.preparo)] || null : null;
+const numIn = n => String(Math.round(n * 100) / 100).replace('.', ','); // sem separador de milhar: o campo relê o valor
+const palavraPorcao = p => /onigiri/i.test(p.prato) ? 'onigiris' : 'bowls';
+
+// Tocável só quando dá para saber quanto do preparo vai em 1 porção (senão a conta sairia errada).
+const prepOk = (p, i) => !!prepDe(i) && TC.porPorcaoDe(p, prepDe(i)) != null;
+
+function itemPreparoAberto(p) {
+  return (p.montagem || []).find(i => i.nome === calc.preparo && prepOk(p, i)) || null;
+}
+
+function telaPreparo(p, item) {
+  const prep = prepDe(item);
+  const naLeva = TC.contarNaLeva(dados.producao, p.prato);
+  if (calc.porcoes == null) calc.porcoes = 1;
+  const canto = naLeva == null ? '' : '<button class="leva-canto" id="prep-leva">Leva atual:<br><b>' + num(naLeva) + ' ' + esc(palavraPorcao(p)) + '</b><br><u>usar</u></button>';
+  return '<button class="voltar" id="prep-voltar">‹ Voltar à montagem</button>' +
+    '<div class="card"><div class="prep-topo"><b>' + esc(item.nome) + '</b>' + canto + '</div>' +
+    '<div class="rot">Para quantos ' + esc(palavraPorcao(p)) + '?</div>' +
+    '<div class="calc"><input id="prep-n" type="text" inputmode="decimal" autocomplete="off" value="' + numIn(calc.porcoes) + '"></div>' +
+    '<p class="erro" id="prep-aviso" role="alert"></p>' +
+    '<div class="rot">Ingredientes (mude qualquer um)</div><table class="prep-tab"><tbody>' +
+    TC.escalarReceita(prep, TC.porPorcaoDe(p, prep), calc.porcoes).map((l, k) =>
+      '<tr><td>' + esc(l.nome) + '</td><td class="qtd"><input data-ing="' + k + '" type="text" inputmode="decimal" autocomplete="off" value="' + numIn(l.quantidade) + '"> ' + esc(TC.unidadeBase(l.unidade)) + '</td></tr>').join('') +
+    '</tbody></table><p class="prep-res" id="prep-res">' + esc(TC.resumoLeva(calc.porcoes, naLeva, palavraPorcao(p))) + '</p>' +
+    '<button class="voltar" id="prep-padrao">Voltar à medida padrão</button></div>' +
+    (listaPassos(item.modoPreparo).length ? '<div class="card"><div class="rot">Como fazer</div><ol class="passos">' +
+      listaPassos(item.modoPreparo).map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></div>' : '');
+}
+
+// Atualiza os números sem redesenhar o campo em uso (o cursor não pula).
+function atualizarPreparo(p, item, emUso) {
+  const prep = prepDe(item);
+  const linhas = TC.escalarReceita(prep, TC.porPorcaoDe(p, prep), calc.porcoes);
+  document.querySelectorAll('[data-ing]').forEach(inp => { if (inp !== emUso) inp.value = numIn(linhas[+inp.dataset.ing].quantidade); });
+  const n = $('#prep-n'); if (n !== emUso) n.value = numIn(calc.porcoes);
+  $('#prep-res').textContent = TC.resumoLeva(calc.porcoes, TC.contarNaLeva(dados.producao, p.prato), palavraPorcao(p));
+}
+
+function ligarPreparo(p) {
+  document.querySelectorAll('[data-preparo]').forEach(b => b.onclick = () => { calc.preparo = b.dataset.preparo; calc.porcoes = null; desenhar(); });
+  const item = itemPreparoAberto(p);
+  if (!item) return;
+  const prep = prepDe(item);
+  $('#prep-voltar').onclick = () => { calc.preparo = null; desenhar(); };
+  $('#prep-padrao').onclick = () => { calc.porcoes = 1; desenhar(); };
+  const lv = $('#prep-leva');
+  if (lv) lv.onclick = () => { calc.porcoes = TC.contarNaLeva(dados.producao, p.prato); desenhar(); };
+  const ler = (inp, paraPorcoes) => {
+    const v = TC.lerNumero(inp.value);
+    inp.classList.toggle('inv', v == null);
+    $('#prep-aviso').textContent = v == null ? 'Digite um número, por exemplo 10 ou 2,5.' : '';
+    if (v == null) return;
+    const novas = paraPorcoes(v);
+    if (novas == null) { $('#prep-aviso').textContent = 'Este ingrediente não tem medida na ficha. Mude outro.'; return; }
+    calc.porcoes = novas;
+    atualizarPreparo(p, item, inp);
+  };
+  const n = $('#prep-n');
+  n.oninput = () => ler(n, v => v);
+  document.querySelectorAll('[data-ing]').forEach(inp => inp.oninput = () =>
+    ler(inp, v => TC.porcoesPorIngrediente(prep, TC.porPorcaoDe(p, prep), +inp.dataset.ing, v)));
+}
+
 function painelReceita(p) {
   if (!p) return '<p class="mudo">Escolha uma receita para ver os ingredientes e ajustar as porções.</p>';
+  const aberto = itemPreparoAberto(p);
+  if (aberto) return telaPreparo(p, aberto);
   const base = p.rendimentoPorcoes || 1;
   if (calc.n == null) calc.n = base;
   const pre = [1, 5, 10, 20].map(v => '<button data-n="' + v + '" class="' + (calc.n === v ? 'on' : '') + '">' + v + '</button>').join('');
@@ -153,7 +222,7 @@ function tabelaReceita(p, n) {
   // montagem: quantidade por porção (1 bowl, 1 onigiri) x número de porções
   const aberto = document.querySelector('#tab-receita details.todos');
   return '<table><thead><tr><th>Montagem</th><th class="n">Quantidade</th></tr></thead><tbody>' +
-    p.montagem.map(i => '<tr><td>' + esc(i.nome) + (i.obs ? '<br><span class="mudo">' + esc(i.obs) + '</span>' : '') + '</td><td class="qtd">' +
+    p.montagem.map(i => '<tr><td>' + (prepOk(p, i) ? '<button class="prep-link" data-preparo="' + esc(i.nome) + '">' + esc(i.nome) + ' ›</button>' : esc(i.nome)) + (i.obs ? '<br><span class="mudo">' + esc(i.obs) + '</span>' : '') + '</td><td class="qtd">' +
       (i.quantidade == null ? '—' : num(i.quantidade * n) + ' ' + esc(i.unidade || '')) + '</td></tr>').join('') + '</tbody></table>' +
     '<details class="todos"' + (aberto && aberto.open ? ' open' : '') + '><summary class="mudo">Todos os ingredientes (da planilha)</summary>' + todos + '</details>';
 }
@@ -205,6 +274,42 @@ function telaProducao() {
     '<h2>Ingredientes para esta produção</h2><div class="card">' + (ing.map(i => linha(esc(i.nome), num(i.q) + ' ' + esc(i.un))).join('') || '<p class="mudo">Sem receitas para somar.</p>') + '</div>' +
     (semReceita.length ? '<p class="aviso">Sem ficha na planilha, não somados: ' + esc(semReceita.join(', ')) + '</p>' : '') +
     '<h2>Pedidos por cliente</h2>' + (pedidos || '<p class="mudo">Nenhum pedido.</p>');
+}
+
+// ---------- lista de compras da leva (checks compartilhados na aba "Compras marcadas") ----------
+function telaCompras() {
+  const pr = dados.producao;
+  const r = TC.listaCompras(pr, dados.dashboard.pratos || [], dados.preparos || {}, dados.produtos || []);
+  const marc = (dados.compras && dados.compras.leva === pr.leva && dados.compras.marcados) || {};
+  const ordem = r.linhas.slice().sort((a, b) => (marc[a.chave] ? 1 : 0) - (marc[b.chave] ? 1 : 0)); // compradas descem
+  const linhas = ordem.map(l => '<label class="compra' + (marc[l.chave] ? ' feita' : '') + '"><input type="checkbox" data-compra="' + esc(l.chave) + '"' +
+    (marc[l.chave] ? ' checked' : '') + '><span>' + esc(l.nome) + '</span><b>' + num(l.quantidade) + ' ' + esc(l.unidade) + '</b></label>').join('');
+  return '<p class="mudo">' + esc(pr.leva || '') + ' · ' + r.linhas.length + ' itens · ' + Object.keys(marc).length + ' marcados</p>' +
+    '<p class="erro" id="compra-aviso" role="alert"></p>' +
+    '<div class="card">' + (linhas || '<p class="mudo">Nenhum pedido aprovado nesta leva.</p>') + '</div>' +
+    (r.semFicha.length ? '<p class="aviso">Sem ficha, não somados: ' + esc(r.semFicha.join(', ')) + '</p>' : '');
+}
+
+async function marcarCompra(chave, marcado, caixa) {
+  caixa.disabled = true;
+  try {
+    const resp = await fetch(window.TANUKI_API, { method: 'POST', redirect: 'follow',
+      body: JSON.stringify({ pin, acao: 'marcar', leva: dados.producao.leva, chave, marcado }) });
+    const j = await resp.json();
+    if (!j.ok) {
+      caixa.checked = !marcado;
+      $('#compra-aviso').textContent = j.erro === 'leva' ? 'A leva mudou. Toque em ↻ para atualizar.' : 'O check não foi salvo. Tente de novo.';
+      return;
+    }
+    dados.compras = j.compras;
+    LS.set('tanuki_dados', JSON.stringify(dados));
+    desenhar();
+  } catch (e) {
+    caixa.checked = !marcado;
+    $('#compra-aviso').textContent = 'Sem conexão: o check não foi salvo.';
+  } finally {
+    caixa.disabled = false;
+  }
 }
 
 // ---------- contagem das etiquetas (formato novo) ----------
@@ -612,7 +717,10 @@ function ligar() {
   const sp = $('#sel-prato');
   if (sp) sp.onchange = () => { $('#painel-prato').innerHTML = painelPrato(dados.dashboard.pratos[sp.value]); };
   const se = $('#sel-receita');
-  if (se) se.onchange = () => { calc.prato = se.value; calc.n = null; desenhar(); };
+  if (se) se.onchange = () => { calc.prato = se.value; calc.n = null; calc.preparo = null; desenhar(); };
+  document.querySelectorAll('[data-compra]').forEach(c => c.onchange = () => marcarCompra(c.dataset.compra, c.checked, c));
+  const pReceita = aba === 'receitas' && pratosReceita().find(x => x.prato === calc.prato);
+  if (pReceita) ligarPreparo(pReceita);
   const cn = $('#calc-n');
   if (cn) cn.oninput = () => {
     const txt = String(cn.value).trim().replace(',', '.');
