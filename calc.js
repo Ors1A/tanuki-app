@@ -61,19 +61,31 @@
     return its.length ? its.reduce((s, i) => s + (Number(i.quantidade) || 0), 0) : null;
   }
 
+  // g e ml somam juntos: a planilha já trata 1 g = 1 ml (mesmo custo por unidade; vinagre e mirin ~1 g/ml)
+  const grupo = u => { const b = unidadeBase(u); return b === 'g' || b === 'ml' ? 'peso' : b; };
+
   function chaveCompra(nome, unidade, contexto) {
     const final = norm(nome).includes('salm') ? (contexto === 'onigiri' ? 'Salmão para onigiri' : 'Salmão para poke') : nome;
-    return { chave: norm(final) + '|' + unidadeBase(unidade), nome: final };
+    return { chave: norm(final) + '|' + grupo(unidade), nome: final };
+  }
+
+  // Peso da porção de um adicional, escrito na Observação da aba Produtos ("35 g", "12,5 ml", "1 un", "1/4 de folha").
+  function porcaoDoProduto(pd) {
+    const s = String((pd && pd.obs) || '').trim();
+    const fr = s.match(/^(\d+)\s*\/\s*(\d+)\s*de\s+folha/i);
+    if (fr && +fr[2] > 0) return { quantidade: +fr[1] / +fr[2], unidade: 'un' };
+    const m = s.match(/^(\d+(?:[.,]\d+)?)\s*(g|ml|un)\b/i);
+    return m ? { quantidade: Number(m[1].replace(',', '.')), unidade: m[2].toLowerCase() } : null;
   }
 
   function listaCompras(producao, pratos, preparos, produtos) {
     const soma = {}, semFicha = [];
     pratos = pratos || []; preparos = preparos || {}; produtos = produtos || [];
     function somar(nome, qtd, un, ctx) {
-      const k = chaveCompra(nome, un, ctx);
-      // shortcut: mesmo insumo em g e em ml fica em duas linhas; converter só se o dono pedir
-      soma[k.chave] = soma[k.chave] || { chave: k.chave, nome: k.nome, quantidade: 0, unidade: unidadeBase(un) };
-      soma[k.chave].quantidade += qtd;
+      const k = chaveCompra(nome, un, ctx), u = unidadeBase(un);
+      const l = soma[k.chave] = soma[k.chave] || { chave: k.chave, nome: k.nome, quantidade: 0, unidade: u, aproximado: false };
+      if (l.unidade !== u) { l.unidade = 'ml'; l.aproximado = true; } // misturou g e ml: mostra em ml, com "≈"
+      l.quantidade += qtd;
     }
     function expandir(nome, qtd, un, ctx, prof) {
       const p = preparos[norm(nome)];
@@ -87,6 +99,12 @@
       const ctx = pd && /onigiri/i.test(pd.pai || '') ? 'onigiri' : ctxPadrao;
       const fichaNome = pd ? String(pd.ficha || '').trim() : '';
       if (fichaNome && preparos[norm(fichaNome)]) return expandir(fichaNome, qtd, 'un', ctx, 0);
+      const porcao = porcaoDoProduto(pd);
+      if (porcao) {
+        // "Insumo Manga" -> soma no insumo Manga; receita que o app não lê (Goma Dare, Ajitama) -> entra pelo peso da porção
+        const nomeLinha = /^insumo\s+/i.test(fichaNome) ? fichaNome.replace(/^insumo\s+/i, '') : (fichaNome || pd.nome);
+        return somar(nomeLinha, qtd * porcao.quantidade, porcao.unidade, ctx);
+      }
       semFicha.push(nome + ' (' + num(qtd) + ' porções)');
     }
     ((producao && producao.itens) || []).forEach(it => {
@@ -102,6 +120,6 @@
     return { linhas, semFicha };
   }
 
-  const api = { norm, lerNumero, unidadeBase, porPorcaoDe, pesoNaMontagem, escalarReceita, porcoesPorIngrediente, resumoLeva, contarNaLeva, chaveCompra, listaCompras };
+  const api = { norm, lerNumero, unidadeBase, porPorcaoDe, pesoNaMontagem, porcaoDoProduto, escalarReceita, porcoesPorIngrediente, resumoLeva, contarNaLeva, chaveCompra, listaCompras };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else g.TanukiCalc = api;
 })(typeof window !== 'undefined' ? window : globalThis);

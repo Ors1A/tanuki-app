@@ -1,5 +1,5 @@
 // Guarda a "casca" do app para abrir offline. Os dados ficam no localStorage (app.js).
-const CACHE = 'tanuki-v11';
+const CACHE = 'tanuki-v12';
 const CASCA = ['./', 'index.html', 'app.js', 'calc.js', 'style.css', 'config.js', 'lib/jspdf.umd.min.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 

@@ -285,10 +285,11 @@ function telaCompras() {
   const marc = (dados.compras && dados.compras.leva === pr.leva && dados.compras.marcados) || {};
   const ordem = r.linhas.slice().sort((a, b) => (marc[a.chave] ? 1 : 0) - (marc[b.chave] ? 1 : 0)); // compradas descem
   const linhas = ordem.map(l => '<label class="compra' + (marc[l.chave] ? ' feita' : '') + '"><input type="checkbox" data-compra="' + esc(l.chave) + '"' +
-    (marc[l.chave] ? ' checked' : '') + '><span>' + esc(l.nome) + '</span><b>' + num(l.quantidade) + ' ' + esc(l.unidade) + '</b></label>').join('');
+    (marc[l.chave] ? ' checked' : '') + '><span>' + esc(l.nome) + '</span><b>' + (l.aproximado ? '≈ ' : '') + num(l.quantidade) + ' ' + esc(l.unidade) + '</b></label>').join('');
   return '<p class="mudo">' + esc(pr.leva || '') + ' · ' + r.linhas.length + ' itens · ' + Object.keys(marc).length + ' marcados</p>' +
     '<p class="erro" id="compra-aviso" role="alert"></p>' +
     '<div class="card">' + (linhas || '<p class="mudo">Nenhum pedido aprovado nesta leva.</p>') + '</div>' +
+    (r.linhas.some(l => l.aproximado) ? '<p class="mudo">≈ soma de g e ml, contando 1 g = 1 ml, como na planilha de custos.</p>' : '') +
     (r.semFicha.length ? '<p class="aviso">Sem ficha, não somados: ' + esc(r.semFicha.join(', ')) + '</p>' : '');
 }
 
