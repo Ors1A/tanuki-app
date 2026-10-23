@@ -31,6 +31,13 @@
     return preparo && preparo.unidade === 'un' ? 1 : null;
   }
 
+  // Ingrediente da ficha contado em "un" (ex.: Recheio Shimeji 1 un) -> peso por porção pela Montagem (22 g).
+  function pesoNaMontagem(ficha, nomeIngrediente, unidade) {
+    if (unidadeBase(unidade) !== 'un') return null;
+    const m = ((ficha && ficha.montagem) || []).find(i => i.preparo && norm(i.preparo) === norm(nomeIngrediente));
+    return m && m.quantidade > 0 && unidadeBase(m.unidade) !== 'un' ? { quantidade: m.quantidade, unidade: unidadeBase(m.unidade) } : null;
+  }
+
   function escalarReceita(preparo, porPorcao, porcoes) {
     const f = porPorcao * porcoes / preparo.rende;
     return preparo.ingredientes.map(i => ({ nome: i.nome, quantidade: i.quantidade * f, unidade: i.unidade }));
@@ -95,6 +102,6 @@
     return { linhas, semFicha };
   }
 
-  const api = { norm, lerNumero, unidadeBase, porPorcaoDe, escalarReceita, porcoesPorIngrediente, resumoLeva, contarNaLeva, chaveCompra, listaCompras };
+  const api = { norm, lerNumero, unidadeBase, porPorcaoDe, pesoNaMontagem, escalarReceita, porcoesPorIngrediente, resumoLeva, contarNaLeva, chaveCompra, listaCompras };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else g.TanukiCalc = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -254,9 +254,11 @@ function telaProducao() {
     if (!f) { semReceita.push(it.item); return; }
     const fator = it.quantidade / (f.rendimentoPorcoes || 1);
     f.ingredientes.forEach(i => {
-      const k = norm(i.nome) + '|' + (i.unidade || '');
-      soma[k] = soma[k] || { nome: i.nome, un: i.unidade || '', q: 0 };
-      soma[k].q += (i.quantidade || 0) * fator;
+      const peso = TC.pesoNaMontagem(f, i.nome, i.unidade); // recheio: 1 un -> 22 g
+      const un = peso ? peso.unidade : (i.unidade || '');
+      const k = norm(i.nome) + '|' + un;
+      soma[k] = soma[k] || { nome: i.nome, un, q: 0 };
+      soma[k].q += (i.quantidade || 0) * (peso ? peso.quantidade : 1) * fator;
     });
   });
   const ing = Object.keys(soma).map(k => soma[k]).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
