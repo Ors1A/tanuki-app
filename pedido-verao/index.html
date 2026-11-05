@@ -176,10 +176,10 @@ var CFG = {
   ],
   AVISOS: [
     'Salmão cru: consumir preferencialmente no dia da retirada. Conservar a 8 °C ou menos por até 2 dias.',
-    'Onigiri de shimeji: contém castanha de caju e leite.',
-    'Onigiri de frango teriyaki: contém soja, trigo e gergelim.',
-    "Onigiri de caponata: contém nozes e gergelim (no za'atar).",
-    'Mousse de matcha: contém leite e ovo.',
+    { oni: 'shimeji', t: 'Onigiri de shimeji: contém castanha de caju e leite.' },
+    { oni: 'teriyaki', t: 'Onigiri de frango teriyaki: contém soja, trigo e gergelim.' },
+    { oni: 'caponata', t: "Onigiri de caponata: contém nozes e gergelim (no za'atar)." },
+    { sob: 'mousse', t: 'Mousse de matcha: contém leite e ovo.' },
     'Kani e ajitama não são vegetarianos.',
     'Leve o pedido direto para a geladeira depois da retirada.'
   ]
@@ -519,7 +519,7 @@ var CFG = {
     var h = '<div class="topo"><h2>Quase lá</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
     h += '<div class="card"><div class="sec">Seu pedido</div><ul class="resumo">' + resumoItens() + '</ul><div class="valor">' + brl(totalPedido()) + '</div></div>';
     h += '<div class="card"><label class="campo" for="obs">Observações <small style="font-weight:600;color:var(--muted)">(opcional)</small></label><textarea id="obs" rows="3" maxlength="300">' + esc(dados.obs) + '</textarea></div>';
-    h += '<div class="avisos"><b>Avisos importantes</b><ul>' + CFG.AVISOS.map(function(a){ return '<li>' + esc(a) + '</li>'; }).join('') + '</ul>';
+    h += '<div class="avisos"><b>Avisos importantes</b><ul>' + CFG.AVISOS.filter(avisoAtivo).map(function(a){ return '<li>' + esc(a.t || a) + '</li>'; }).join('') + '</ul>';
     h += '<label class="ciente" id="g-ciente"><input type="checkbox" id="ciente"' + (dados.ciente ? ' checked' : '') + '><span>Li e estou ciente dos avisos acima</span></label><div class="erro-campo" id="e-ciente">Confirme que leu os avisos.</div></div>';
     h += '<div class="acoes"><button class="btn prim" data-a="confirmar" id="btnConfirmar">Enviar pedido · ' + brl(totalPedido()) + '</button></div>';
     return h + barra();
@@ -563,6 +563,12 @@ var CFG = {
   function primeiraInvalida(){
     for (var i = 0; i < units.length; i++) if (!unidadeOk(units[i])) return i;
     return -1;
+  }
+  // Aviso de item fora do cardápio não aparece (ex.: sabor surpresa ainda não revelado).
+  function avisoAtivo(a){
+    if (a.oni) return CFG.ONIGIRIS.some(function(o){ return o.k === a.oni; });
+    if (a.sob) return CFG.SOBREMESAS.some(function(o){ return o.k === a.sob; });
+    return true;
   }
   function totaisOni(){
     var t = {}; CFG.ONIGIRIS.forEach(function(o){ t[o.k] = 0; });
