@@ -220,6 +220,12 @@ var CFG = {
     return rotulo + (min === max ? ' ' : ' a partir de ') + brl(min);
   }
   function nomeSabor(lista, k){ var r = lista.filter(function(x){ return x.k === k; })[0]; return r ? r.nome : ''; }
+  var RESTAM = {};         // onigiri: chave do sabor -> quantas unidades ainda podem ser reservadas (sem chave = sem limite)
+  function livreOni(k, uIdx){
+    if (typeof RESTAM[k] !== 'number') return Infinity;
+    var usado = 0; units.forEach(function(x, j){ if (x.t === 'oni' && j !== uIdx && x.sabor === k) usado += x.qtd; });
+    return Math.max(0, RESTAM[k] - usado);
+  }
   function contar(t){ return units.filter(function(u){ return u.t === t; }).length; }
   function numero(i){ var t = units[i].t, n = 0; for (var j = 0; j <= i; j++) if (units[j].t === t) n++; return n; }
   function titulo(i){ return (units[i].t === 'poke' ? 'Poke ' : 'Onigiri ') + numero(i); }
@@ -253,6 +259,9 @@ var CFG = {
   function aplicarCardapio(j){
     var preco = {};
     j.itens.forEach(function(it){ preco[it.nome] = Number(it.preco); });
+    CFG.ONIGIRIS.forEach(function(o){
+      j.itens.forEach(function(it){ if (it.nome === CFG.NOMES.ONIGIRIS[o.k] && typeof it.restam === 'number') RESTAM[o.k] = it.restam; });
+    });
     function aplica(lista, nomes){
       return lista.filter(function(x){ return nomes[x.k] && preco.hasOwnProperty(nomes[x.k]); })
                   .map(function(x){ x.p = preco[nomes[x.k]]; return x; });
@@ -447,9 +456,9 @@ var CFG = {
     } else {
       h += '<p class="sub">' + textoPreco(CFG.ONIGIRIS, 'Onigiri') + ' cada · 110 g · a folha de nori vem separada na embalagem.</p><div class="card">';
       h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
-      CFG.ONIGIRIS.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + '</small></span></button>'; });
+      CFG.ONIGIRIS.forEach(function(s){ var esg = u.sabor !== s.k && livreOni(s.k, i) <= 0; h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"' + (esg ? ' disabled' : '') + '><span class="dot"></span><span class="t">' + s.nome + '<small>' + (esg ? 'Esgotado para reserva · tem no balcão' : s.desc) + '</small></span></button>'; });
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
-      h += '<div class="sec">Quantidade</div><div class="passo"><button data-a="qtd" data-d="-1"' + (u.qtd <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><output>' + u.qtd + '</output><button data-a="qtd" data-d="1"' + (u.qtd >= CFG.MAX_ONIGIRI ? ' disabled' : '') + ' aria-label="Mais">+</button></div></div>';
+      h += '<div class="sec">Quantidade</div><div class="passo"><button data-a="qtd" data-d="-1"' + (u.qtd <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><output>' + u.qtd + '</output><button data-a="qtd" data-d="1"' + (u.qtd >= Math.min(CFG.MAX_ONIGIRI, livreOni(u.sabor, i)) ? ' disabled' : '') + ' aria-label="Mais">+</button></div></div>';
     }
     return h + maisItens() + barra();
   }
@@ -822,6 +831,17 @@ var CFG = {
         .then(function(j){
           clearTimeout(t);
           if (j && j.ok === true) { sucesso(j); return; }
+          if (j && j.codigo === 'teto') {
+            enviando = false; ultimoCorpo = null;
+            alert(j.mensagem);
+            var rs = j.restam || {};
+            CFG.ONIGIRIS.forEach(function(o){ var v = rs[CFG.NOMES.ONIGIRIS[o.k]]; if (typeof v === 'number') RESTAM[o.k] = v; });
+            var gasto = {};  // percorre em ordem: cada unidade fica com o que sobrou do sabor
+            units.forEach(function(x){ if (x.t !== 'oni') return; var lim = typeof RESTAM[x.sabor] === 'number' ? RESTAM[x.sabor] - (gasto[x.sabor] || 0) : Infinity; x.qtd = Math.max(0, Math.min(x.qtd, lim)); gasto[x.sabor] = (gasto[x.sabor] || 0) + x.qtd; });
+            units = units.filter(function(x){ return x.t !== 'oni' || x.qtd > 0; });
+            ir(contar('oni') ? 'final' : (modo ? 'comp' : 'dados'));
+            return;
+          }
           if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
           if (j && j.codigo === 'fechado') { enviando = false; mostrarEstado('<h2>Pedidos fechados</h2><p>Os pedidos não estão abertos agora.</p>'); return; }
           if (j && j.codigo === 'existente') { existente(j); return; }
@@ -857,7 +877,7 @@ var CFG = {
       units.splice(iu, 1);
       ir(units.length ? primeiraTela(Math.min(iu, units.length - 1)) : (modo ? 'comp' : 'dados'));
     }
-    else if (a === 'sabor') { u.sabor = b.getAttribute('data-k'); render(); }
+    else if (a === 'sabor') { var ks = b.getAttribute('data-k'); if (u.t === 'oni') { var lv = livreOni(ks, iu); if (lv <= 0) return; u.qtd = Math.max(1, Math.min(u.qtd, lv)); } u.sabor = ks; render(); }
     else if (a === 'vin') { u.vin = (b.getAttribute('data-k') === 'true'); render(); }
     else if (a === 'avancar') { if (!unidadeOk(u)) { mostrarErrosUnidade(u); return; } ir('u' + iu + 'b'); }
     else if (a === 'ad') { var k = b.getAttribute('data-k'); if (u.ad[k]) delete u.ad[k]; else u.ad[k] = 1; render(); }
@@ -872,7 +892,7 @@ var CFG = {
       if (nq) alvo[kq] = nq; else delete alvo[kq];
       render();
     }
-    else if (a === 'qtd') { u.qtd = Math.max(1, Math.min(CFG.MAX_ONIGIRI, u.qtd + (+b.getAttribute('data-d')))); render(); }
+    else if (a === 'qtd') { u.qtd = Math.max(1, Math.min(CFG.MAX_ONIGIRI, livreOni(u.sabor, iu), u.qtd + (+b.getAttribute('data-d')))); render(); }
     else if (a === 'seguir') {
       if (u && !unidadeOk(u)) { mostrarErrosUnidade(u); return; }
       var ruim = primeiraInvalida();
