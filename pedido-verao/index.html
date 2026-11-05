@@ -341,7 +341,7 @@ var CFG = {
     i.itens.forEach(function(x){ li += '<li><b>' + x.qtd + '× ' + esc(x.nome) + '</b></li>'; });
     i.adicionais.forEach(function(x){ li += '<li>+ ' + x.qtd + '× ' + esc(x.nome) + ' <small>(' + esc(x.em) + ')</small></li>'; });
     h += '<div class="card"><div class="sec">O que você pediu</div><ul class="resumo">' + li + '</ul><div class="valor">' + brl(i.total) + '</div>';
-    h += '<p class="nota">Pagamento: <b>' + (String(i.status).indexOf('aprovado') === 0 ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
+    h += '<p class="nota">Pagamento: <b>' + (String(i.status).indexOf('local') >= 0 ? 'na retirada' : String(i.status).indexOf('aprovado') === 0 ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
     if (String(i.status).indexOf('aprovado') === 0 && (i.pokes || []).length) {
       h += '<div class="card"><div class="sec">Seus pokes</div>' + (msgVin ? '<p class="nota"><b>' + esc(msgVin) + '</b></p>' : '') + '<ul class="resumo">';
       var grupo = '';
@@ -776,7 +776,7 @@ var CFG = {
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
     ultimaRes = res; substituiRef = '';
     if (res.local === true) {
-      $('tela').innerHTML = '<div class="msg ok"><h2>Reserva feita!</h2><p>Retire e pague na Livraria Objetiva.</p><p>' + frase() + '</p><p>Seu número: <b>' + esc(res.ref) + '</b></p><ul class="resumo">' + resumoItens() + '</ul></div>';
+      $('tela').innerHTML = '<div class="msg ok"><h2>Reserva feita!</h2><p>Valor a pagar na retirada:</p><div class="valor">' + brl(total) + '</div><p>' + frase() + '</p><p>Seu número: <b>' + esc(res.ref) + '</b></p><ul class="resumo">' + resumoItens() + '</ul></div>';
       window.scrollTo({top: 0, behavior: 'smooth'});
       return;
     }
