@@ -118,9 +118,9 @@ var CFG = {
   MAX_POKES: 5, MAX_ONI_PAGINAS: 3, MAX_ONIGIRI: 10,
   NOMES: {
     SABORES: { salmao: 'Poke Salmao', apimentado: 'Poke Apimentado (atum)', vegetariano: 'Poke Vegetariano' },
-    ONIGIRIS: { salmao: 'Onigiri Salmao', tuna: 'Onigiri Tuna Mayo', shimeji: 'Onigiri Shimeji' },
+    ONIGIRIS: { salmao: 'Onigiri Salmao', tuna: 'Onigiri Tuna Mayo', shimeji: 'Onigiri Shimeji', caponata: 'Onigiri Caponata', teriyaki: 'Onigiri Frango Teriyaki' },
     ACOMP: { sunomono: 'Sunomono', repolho: 'Mix de Repolho com Goma Dare' },
-    SOBREMESAS: { pudim: 'Pudim de Matcha' },
+    SOBREMESAS: { pudim: 'Pudim de Matcha', mousse: 'Mousse de Chocolate Branco e Matcha' },
     ADICIONAIS: {
       salmao: 'Salmao marinado', atum: 'Atum cozido com maionese', shimejitofu: 'Shimeji + Tofu',
       tofu: 'Tofu marinado', shimeji: 'Shimeji', arroz: 'Arroz extra', sunomono: 'Sunomono',
@@ -161,7 +161,9 @@ var CFG = {
   ONIGIRIS: [
     {k:'salmao', nome:'Salmão', desc:'Salmão cru, cream cheese e cebolinha'},
     {k:'tuna', nome:'Tuna Mayo', desc:'Atum com maionese japonesa'},
-    {k:'shimeji', nome:'Shimeji (vegetariano)', desc:'Contém castanha de caju e leite'}
+    {k:'shimeji', nome:'Shimeji (vegetariano)', desc:'Contém castanha de caju e leite'},
+    {k:'caponata', nome:'Caponata', desc:'Vegetariano'},
+    {k:'teriyaki', nome:'Frango Teriyaki', desc:'Frango ao molho teriyaki, com gergelim'}
   ],
   // Acompanhamentos do onigiri (só aparecem se o pedido tiver onigiri)
   ACOMP: [
@@ -169,11 +171,14 @@ var CFG = {
     {k:'repolho', nome:'Mix de Repolho com Goma Darê (Molho de Gergelim)', por:'50 g', p:1.9, max:3}
   ],
   SOBREMESAS: [
-    {k:'pudim', nome:'Pudim de matcha', por:'150 g', p:10, max:5}
+    {k:'pudim', nome:'Pudim de matcha', por:'150 g', p:10, max:5},
+    {k:'mousse', nome:'Mousse de matcha', por:'chocolate branco, matcha e coco caramelizado, 100 g', p:10, max:5}
   ],
   AVISOS: [
     'Salmão cru: consumir preferencialmente no dia da retirada. Conservar a 8 °C ou menos por até 2 dias.',
     'Onigiri de shimeji: contém castanha de caju e leite.',
+    'Onigiri de frango teriyaki: contém soja, trigo e gergelim.',
+    'Mousse de matcha: contém leite e ovo; leva gelatina (origem animal).',
     'Kani e ajitama não são vegetarianos.',
     'Leve o pedido direto para a geladeira depois da retirada.'
   ]
@@ -224,11 +229,11 @@ var CFG = {
   function passos(){
     var p = [modo ? 'comp' : 'dados'];
     units.forEach(function(u, i){ if (u.t === 'poke') p.push('u' + i + 'a', 'u' + i + 'b'); else p.push('u' + i); });
-    if (contar('oni')) p.push('acomp');
+    if (contar('oni') && CFG.ACOMP.length) p.push('acomp');
     p.push('sob', 'final');
     return p;
   }
-  function depoisDosItens(){ return contar('oni') ? 'acomp' : 'sob'; }
+  function depoisDosItens(){ return contar('oni') && CFG.ACOMP.length ? 'acomp' : 'sob'; }
   // Linha com − número + (quantidade de 0 a max)
   function passoQtd(g, k, nome, sub, q, max){
     return '<div class="linha' + (q ? ' on' : '') + '"><span class="t">' + esc(nome) + '<small>' + sub + '</small></span><div class="passo mini">' +
@@ -313,7 +318,7 @@ var CFG = {
     h += '<p class="nota">Usamos seu nome e telefone só para este pedido e para falar com você sobre ele.</p></div>';
     h += '<div class="acoes"><div class="tit">' + (units.length ? 'Seu pedido tem ' + units.length + (units.length === 1 ? ' item. Continue ou adicione:' : ' itens. Continue ou adicione:') : 'O que você quer pedir?') + '</div>';
     if (units.length) h += '<button class="btn escuro" data-a="continuar">Continuar pedido</button>';
-    h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div></div>';
+    h += '<div class="dupla">' + botPoke() + '<button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div></div>';
     h += '<p class="nota" style="margin-top:18px;text-align:center">Já fez um pedido? <button class="link" data-a="acessar">Ver ou adicionar itens</button></p>';
     return h;
   }
@@ -362,7 +367,7 @@ var CFG = {
     if (i.podeComplementar) {
       h += '<div class="acoes"><div class="tit">' + (units.length ? 'Itens novos: ' + units.length + '. Continue ou adicione:' : 'Adicionar itens (pagos à parte)') + '</div>';
       if (units.length) h += '<button class="btn escuro" data-a="continuarc">Continuar</button>';
-      h += '<div class="dupla"><button class="btn prim" data-a="novo" data-t="poke">Poke</button><button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div>';
+      h += '<div class="dupla">' + botPoke() + '<button class="btn prim" data-a="novo" data-t="oni">Onigiri</button></div>';
       if (i.ate) h += '<p class="nota">Dá para adicionar itens até ' + esc(i.ate) + '.</p>';
       h += '</div>';
     } else if (String(i.status).indexOf('aprovado') !== 0) {
@@ -401,10 +406,11 @@ var CFG = {
   }
 
   // Botões "Quer pedir mais alguma coisa?" + Continuar (no último passo de cada item)
+  function botPoke(){ return CFG.SABORES.length ? '<button class="btn prim" data-a="novo" data-t="poke">Poke</button>' : ''; }
   function maisItens(){
     var np = contar('poke'), no = contar('oni');
     var h = '<div class="acoes"><div class="tit">Quer pedir mais alguma coisa?</div>', bots = '';
-    if (np < CFG.MAX_POKES) bots += '<button class="btn sec2" data-a="novo" data-t="poke">' + (np ? 'Poke ' + (np + 1) : 'Poke') + '</button>';
+    if (CFG.SABORES.length && np < CFG.MAX_POKES) bots += '<button class="btn sec2" data-a="novo" data-t="poke">' + (np ? 'Poke ' + (np + 1) : 'Poke') + '</button>';
     if (no < CFG.MAX_ONI_PAGINAS) bots += '<button class="btn sec2" data-a="novo" data-t="oni">' + (no ? 'Onigiri ' + (no + 1) : 'Onigiri') + '</button>';
     if (bots) h += '<div class="dupla">' + bots + '</div>';
     return h + '<button class="btn prim" data-a="seguir">Continuar</button></div>';
@@ -769,6 +775,11 @@ var CFG = {
     var total = Number(res.total);
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
     ultimaRes = res; substituiRef = '';
+    if (res.local === true) {
+      $('tela').innerHTML = '<div class="msg ok"><h2>Reserva feita!</h2><p>Retire e pague na Livraria Objetiva.</p><p>' + frase() + '</p><p>Seu número: <b>' + esc(res.ref) + '</b></p><ul class="resumo">' + resumoItens() + '</ul></div>';
+      window.scrollTo({top: 0, behavior: 'smooth'});
+      return;
+    }
     try { sessionStorage.setItem('tanuki_ref_pend', res.ref); } catch(e){}
     $('tela').innerHTML = '<div class="msg ok"><h2>Estamos quase lá!</h2><p><b>Falta só o pagamento.</b> ' + (modo ? 'Seu complemento' : 'Seu pedido') + ' só é registrado quando o pagamento for confirmado.</p>' +
       '<div class="valor">' + brl(total) + '</div>' + htmlPagamento(res, total) +
