@@ -191,7 +191,11 @@ var CFG = {
   var origem = (new URLSearchParams(location.search).get('origem') || 'pagina').replace(/[^A-Za-z0-9_-]/g,'').slice(0,30) || 'pagina';
   var formsLink = CFG.FORMS_URL + '?usp=pp_url&' + CFG.FORMS_ORIGEM_ENTRY + '=' + encodeURIComponent(origem);
 
-  var dados = {nome:'', tel:'', obs:'', ciente:false};
+  var dados = {nome:'', tel:'', obs:'', ciente:false, ret:''};
+  // shortcut: o festival é reconhecido pelo nome da leva ("Festival ..."); trocar por um campo do serviço se houver outro evento
+  var festival = false;
+  var RET = {manha: 'de manhã (10h às 12h)', tarde: 'à tarde (13h15 às 18h)'};
+  var PIX_LIVRARIA = {chave: '06528457000150', mostra: '06.528.457/0001-50', nome: 'Livraria Objetiva', prazo: 'quarta, 11/11'};
   var units = [];          // {t:'poke', sabor, vin, ad:{chave: qtd}} | {t:'oni', sabor, qtd}
   var extras = {acomp:{}, sob:{}};   // acompanhamentos do onigiri e sobremesas: {chave: qtd}
   // Telas: 'dados' | 'u<i>a' (poke: sabor) | 'u<i>b' (poke: adicionais) | 'u<i>' (onigiri) | 'acomp' | 'sob' | 'final'
@@ -294,6 +298,7 @@ var CFG = {
           return;
         }
         aplicarCardapio(j);
+        festival = /festival/i.test(String(j.leva || ''));
         retirada = String(j.retirada || '');
         if (retirada && $('retirada-topo')) $('retirada-topo').innerHTML = '<br>📍 Retirada: ' + esc(retirada) + '.';
         if (refPre) tela = 'acesso';
@@ -518,6 +523,9 @@ var CFG = {
   function htmlFinal(){
     var h = '<div class="topo"><h2>Quase lá</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
     h += '<div class="card"><div class="sec">Seu pedido</div><ul class="resumo">' + resumoItens() + '</ul><div class="valor">' + brl(totalPedido()) + '</div></div>';
+    if (festival) h += '<div class="card" id="g-ret"><span class="campo" style="display:block;font-weight:700;margin-bottom:6px">Quando você vai retirar? <small style="color:var(--err)">(obrigatório)</small></span>' +
+      ['manha','tarde'].map(function(k){ return '<label class="ciente" style="margin-top:8px"><input type="radio" name="ret" value="' + k + '"' + (dados.ret === k ? ' checked' : '') + '><span>' + (k === 'manha' ? 'De manhã, antes do almoço · 10h às 12h' : 'À tarde · 13h15 às 18h') + '</span></label>'; }).join('') +
+      '<div class="erro-campo" id="e-ret">Escolha o período da retirada.</div></div>';
     h += '<div class="card"><label class="campo" for="obs">Observações <small style="font-weight:600;color:var(--muted)">(opcional)</small></label><textarea id="obs" rows="3" maxlength="300">' + esc(dados.obs) + '</textarea></div>';
     h += '<div class="avisos"><b>Avisos importantes</b><ul>' + CFG.AVISOS.filter(avisoAtivo).map(function(a){ return '<li>' + esc(a.t || a) + '</li>'; }).join('') + '</ul>';
     h += '<label class="ciente" id="g-ciente"><input type="checkbox" id="ciente"' + (dados.ciente ? ' checked' : '') + '><span>Li e estou ciente dos avisos acima</span></label><div class="erro-campo" id="e-ciente">Confirme que leu os avisos.</div></div>';
@@ -543,6 +551,7 @@ var CFG = {
     if ($('tel')) dados.tel = $('tel').value;
     if ($('obs')) dados.obs = $('obs').value;
     if ($('ciente')) dados.ciente = $('ciente').checked;
+    var r = document.querySelector('input[name=ret]:checked'); if (r) dados.ret = r.value;
   }
   function dadosOk(){
     var n = nomeOk(dados.nome), t = foneOk(dados.tel);
@@ -792,6 +801,16 @@ var CFG = {
     if (Math.abs(total - totalPedido()) > 0.001 && window.console) console.warn('Total da tela (' + totalPedido() + ') difere do serviço (' + total + '); vale o do serviço.');
     ultimaRes = res; substituiRef = '';
     if (res.local === true) {
+      if (festival) {
+        $('tela').innerHTML = '<div class="msg ok"><h2>Reserva feita!</h2><p><b>Falta confirmar:</b> faça o PIX para a ' + PIX_LIVRARIA.nome + ' e mande o comprovante pelo WhatsApp até <b>' + PIX_LIVRARIA.prazo + '</b>. Sem o comprovante, a reserva é cancelada.</p>' +
+          '<div class="valor">' + brl(total) + '</div><p>Chave PIX (CNPJ) da ' + PIX_LIVRARIA.nome + ': <b>' + PIX_LIVRARIA.mostra + '</b></p>' +
+          '<input id="pixcod" readonly value="' + PIX_LIVRARIA.chave + '" style="position:absolute;left:-9999px" aria-hidden="true">' +
+          '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar chave PIX</button>' +
+          linkWhats('Enviar comprovante pelo WhatsApp', 'Olá! Segue o comprovante do PIX da reserva ' + res.ref + ' de ' + dados.nome.trim() + ', valor ' + brl(total) + '. Retirada: ' + (RET[dados.ret] || '') + '.') +
+          '<p style="margin-top:12px">Retirada: <b>sexta, 13/11, ' + esc(RET[dados.ret] || '') + '</b>, na Livraria Objetiva.</p><p>Seu número: <b>' + esc(res.ref) + '</b></p><ul class="resumo">' + resumoItens() + '</ul></div>';
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        return;
+      }
       $('tela').innerHTML = '<div class="msg ok"><h2>Reserva feita!</h2><p>Valor a pagar na retirada:</p><div class="valor">' + brl(total) + '</div><p>' + frase() + '</p><p>Seu número: <b>' + esc(res.ref) + '</b></p><ul class="resumo">' + resumoItens() + '</ul></div>';
       window.scrollTo({top: 0, behavior: 'smooth'});
       return;
@@ -814,7 +833,7 @@ var CFG = {
       var tot = totaisOni();
       for (var k in tot) if (tot[k] > CFG.MAX_ONIGIRI) { alert('No máximo ' + CFG.MAX_ONIGIRI + ' onigiris de cada sabor. Ajuste a quantidade.'); return; }
       corpo = {
-        id: idPedido, nome: dados.nome, telefone: dados.tel, obs: dados.obs, origem: origem, ciente: true,
+        id: idPedido, nome: dados.nome, telefone: dados.tel, obs: (festival && RET[dados.ret] ? 'Retirada: ' + RET[dados.ret] + '. ' : '') + dados.obs, origem: origem, ciente: true,
         pokes: units.filter(function(u){ return u.t === 'poke'; }).map(function(u){ return {sabor: u.sabor, vinagrete: u.vin, adicionais: soPositivos(u.ad)}; }),
         onigiris: tot,
         acompanhamentos: contar('oni') ? soPositivos(extras.acomp) : {},
@@ -907,6 +926,7 @@ var CFG = {
     }
     else if (a === 'prox') { var ps2 = passos(); ir(ps2[ps2.indexOf(tela) + 1] || 'final'); }
     else if (a === 'confirmar') {
+      if (festival) { var okr = !!RET[dados.ret]; $('e-ret').style.display = okr ? 'none' : 'block'; if (!okr) { $('g-ret').scrollIntoView({behavior:'smooth', block:'center'}); return; } }
       var okc = dados.ciente; $('e-ciente').style.display = okc ? 'none' : 'block';
       if (!okc) { $('g-ciente').scrollIntoView({behavior:'smooth', block:'center'}); return; }
       enviarPedido();
