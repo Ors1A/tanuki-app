@@ -271,7 +271,11 @@ function telaProducao() {
       (p.status ? '<span class="tag">' + esc(p.status) + '</span>' : '') + '</div><div>' +
       (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(p.telefone) + '</a>' : esc(p.telefone || '')) + '</div></div>' + its + '</div>';
   }).join('');
-  return '<p class="mudo">' + (pr.leva ? esc(pr.leva) + ' · ' : '') + (pr.pedidos || []).length + ' pedidos</p>' +
+  const rs = pr.resumo; // total real da leva por status (Apps Script v. nova); sem ele, mostra só os aprovados
+  const porSt = rs ? Object.keys(rs.porStatus || {}).map(s => esc(s) + ': ' + rs.porStatus[s]).join(' · ') : '';
+  return '<p class="mudo">' + (pr.leva ? esc(pr.leva) + ' · ' : '') +
+    (rs ? rs.total + ' pedidos no total (' + rs.aprovados + ' aprovados para produzir)' : (pr.pedidos || []).length + ' pedidos aprovados') + '</p>' +
+    (porSt ? '<p class="mudo">' + porSt + '</p>' : '') +
     '<h2>A produzir</h2><div class="card">' + (itens.map(i => linha(esc(i.item), esc(i.quantidade) + '×')).join('') || '<p class="mudo">Nenhum pedido pago.</p>') + '</div>' +
     '<h2>Ingredientes para esta produção</h2><div class="card">' + (ing.map(i => linha(esc(i.nome), num(i.q) + ' ' + esc(i.un))).join('') || '<p class="mudo">Sem receitas para somar.</p>') + '</div>' +
     (semReceita.length ? '<p class="aviso">Sem ficha na planilha, não somados: ' + esc(semReceita.join(', ')) + '</p>' : '') +
