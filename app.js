@@ -414,7 +414,8 @@ function htmlTampas(ls) {
 }
 
 // Avisos de alergênicos e validade: texto do modelo aprovado de 10/10, não alterar sem pedido do usuário.
-const CONTEM_ONIGIRI = { 'Salmão': 'Contém leite', 'Tuna Mayo': 'Contém ovo', 'Shimeji (vegetariano)': 'Contém castanha de caju e leite' };
+const CONTEM_ONIGIRI = { 'Salmão': 'Contém leite', 'Tuna Mayo': 'Contém ovo', 'Shimeji (vegetariano)': 'Contém castanha de caju e leite',
+  'Caponata': 'Contém nozes e gergelim', 'Frango Teriyaki': 'Contém soja, trigo e gergelim' };
 
 const contemOnigiri = sb => { const k = Object.keys(CONTEM_ONIGIRI).find(x => norm(x) === norm(sb)); return k ? CONTEM_ONIGIRI[k] : ''; };
 
