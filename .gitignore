@@ -21,3 +21,7 @@ teste*.json
 *.env
 # Pastas antigas
 _antigo-*/
+
+# Privado, so neste computador
+CLAUDE.local.md
+graphify-out/
