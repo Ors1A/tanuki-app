@@ -167,8 +167,7 @@ var CFG = {
   ],
   // Acompanhamentos do onigiri (só aparecem se o pedido tiver onigiri)
   ACOMP: [
-    {k:'sunomono', nome:'Sunomono', por:'50 g', p:1.5, max:3},
-    {k:'repolho', nome:'Mix de Repolho com Goma Darê (Molho de Gergelim)', por:'50 g', p:1.9, max:3}
+    {k:'sunomono', nome:'Sunomono', por:'50 g', p:1.5, max:3}
   ],
   SOBREMESAS: [
     {k:'pudim', nome:'Pudim de matcha', por:'150 g', p:10, max:5},
@@ -191,7 +190,7 @@ var CFG = {
   var origem = (new URLSearchParams(location.search).get('origem') || 'pagina').replace(/[^A-Za-z0-9_-]/g,'').slice(0,30) || 'pagina';
   var formsLink = CFG.FORMS_URL + '?usp=pp_url&' + CFG.FORMS_ORIGEM_ENTRY + '=' + encodeURIComponent(origem);
 
-  var dados = {nome:'', tel:'', obs:'', ciente:false, ret:''};
+  var dados = {nome:'', tel:'', obs:'', ciente:false, ret:'', horario:null, diaPudim:''};
   // shortcut: o festival é reconhecido pelo nome da leva ("Festival ..."); trocar por um campo do serviço se houver outro evento
   var festival = false;
   var RET = {manha: 'de manhã (10h às 12h)', tarde: 'à tarde (13h15 às 18h)'};
@@ -206,7 +205,57 @@ var CFG = {
   var modo = null, idComp = null, ultimaRes = null, msgVin = '';
   var pendRef = '', substituiRef = '';   // pedido ainda não pago do mesmo telefone / pedido que o novo vai substituir
   var retirada = '';   // texto da retirada, da aba Configuração (via ?acao=cardapio)
-  function frase(){ return retirada ? 'Retirada: <b>' + esc(retirada) + '</b>.' : 'Combinaremos a retirada com você pelo WhatsApp.'; }
+  var horarios = [], retOni = '';   // retirada em dois dias: horários do poke e dia dos onigiris (do serviço); vazio = retirada única
+  function novoModo(){ return !festival && horarios.length > 0; }
+  function cap(t){ t = String(t); return t.charAt(0).toUpperCase() + t.slice(1); }
+  function temSob(){ return CFG.SOBREMESAS.some(function(s){ return extras.sob[s.k]; }); }
+  // pudim vai com o poke se só há poke, com o onigiri se só há onigiri; com os dois (ou nenhum) a pessoa escolhe
+  function perguntaPudim(){ return novoModo() && temSob() && (contar('poke') > 0) === (contar('oni') > 0); }
+  function diaEf(){
+    if (!temSob()) return '';
+    var p = contar('poke') > 0, o = contar('oni') > 0;
+    return p && !o ? 'poke' : o && !p ? 'onigiri' : dados.diaPudim;
+  }
+  function pedeHorario(){ return novoModo() && (contar('poke') > 0 || diaEf() === 'poke'); }
+  function horOk(i){
+    var h = horarios[i]; if (!h) return false;
+    return typeof h.restam !== 'number' || (h.restam > 0 && h.restam >= contar('poke'));
+  }
+  // [{r: retirada, t: itens}] agrupado por retirada
+  function linhasRetirada(){
+    if (!novoModo()) return [];
+    var d = diaEf(), np = contar('poke'), no = 0, p = [], o = [], L = [];
+    units.forEach(function(u){ if (u.t === 'oni') no += u.qtd; });
+    var sob = CFG.SOBREMESAS.filter(function(s){ return extras.sob[s.k]; }).map(function(s){ return extras.sob[s.k] + ' ' + s.nome.toLowerCase(); });
+    if (np) p.push(np + (np > 1 ? ' pokes' : ' poke'));
+    if (no) {
+      o.push(no + (no > 1 ? ' onigiris' : ' onigiri'));
+      CFG.ACOMP.forEach(function(a){ if (extras.acomp[a.k]) o.push(extras.acomp[a.k] + ' ' + a.nome.toLowerCase()); });
+    }
+    if (d === 'poke') p = p.concat(sob); else if (d === 'onigiri') o = o.concat(sob);
+    var h = horarios[dados.horario];
+    if (p.length) L.push({r: h ? cap(h.texto) : 'Horário do poke (a escolher)', t: p.join(', ')});
+    if (o.length) L.push({r: cap(retOni || retirada), t: o.join(', ')});
+    return L;
+  }
+  function retiradaTxt(){ return linhasRetirada().map(function(x){ return x.r + ': ' + x.t; }).join('; '); }
+  function topo(){
+    var e = $('retirada-topo'); if (!e) return;
+    e.innerHTML = novoModo() ? '<br>📍 Poke: ' + horarios.map(function(h){ return esc(h.texto); }).join(' ou ') + (retOni ? '.<br>Onigiri: ' + esc(retOni) + '.' : '.')
+      : retirada ? '<br>📍 Retirada: ' + esc(retirada) + '.' : '';
+  }
+  // itens de um pedido já feito; com mais de uma retirada, agrupa por "ret" (cada grupo com um título)
+  function porRet(itens, fmt){
+    if (!itens.some(function(x){ return x.ret; })) return itens.map(fmt);
+    var ordem = [], g = {}, out = [];
+    itens.forEach(function(x){ var r = x.ret || ''; if (!g[r]) { g[r] = []; ordem.push(r); } g[r].push(x); });
+    ordem.forEach(function(r){ if (r) out.push('<small><b>Retirada: ' + esc(r) + '</b></small>'); g[r].forEach(function(x){ out.push(fmt(x)); }); });
+    return out;
+  }
+  function frase(){
+    var L = linhasRetirada();
+    if (L.length) return 'Retirada:<br>' + L.map(function(x){ return '<b>' + esc(x.r) + '</b>: ' + esc(x.t); }).join('<br>');
+    return retirada ? 'Retirada: <b>' + esc(retirada) + '</b>.' : 'Combinaremos a retirada com você pelo WhatsApp.'; }
   var refPre = (new URLSearchParams(location.search).get('complemento') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
   var idPedido = null;
   try { idPedido = sessionStorage.getItem('tanuki_id_pedido'); } catch(e){}
@@ -300,7 +349,9 @@ var CFG = {
         aplicarCardapio(j);
         festival = /festival/i.test(String(j.leva || ''));
         retirada = String(j.retirada || '');
-        if (retirada && $('retirada-topo')) $('retirada-topo').innerHTML = '<br>📍 Retirada: ' + esc(retirada) + '.';
+        horarios = Array.isArray(j.horarios) ? j.horarios.filter(function(h){ return h && h.texto; }) : [];
+        retOni = String(j.retiradaOnigiri || '');
+        topo();
         if (refPre) tela = 'acesso';
         $('carregando').hidden = true; $('tela').hidden = false; render();
       }).catch(function(){ clearTimeout(limite); falhou(); });
@@ -353,7 +404,7 @@ var CFG = {
   function htmlComp(){
     var i = modo.info, h = '<div class="topo"><h2>Pedido ' + esc(i.ref) + '</h2></div><button class="link" data-a="voltardados" style="padding-left:0">← Sair</button>';
     var li = '';
-    i.itens.forEach(function(x){ li += '<li><b>' + x.qtd + '× ' + esc(x.nome) + '</b></li>'; });
+    porRet(i.itens, function(x){ return '<li><b>' + x.qtd + '× ' + esc(x.nome) + '</b></li>'; }).forEach(function(x){ li += /^<li>/.test(x) ? x : '<li style="list-style:none;margin-left:-1em">' + x + '</li>'; });
     i.adicionais.forEach(function(x){ li += '<li>+ ' + x.qtd + '× ' + esc(x.nome) + ' <small>(' + esc(x.em) + ')</small></li>'; });
     h += '<div class="card"><div class="sec">O que você pediu</div><ul class="resumo">' + li + '</ul><div class="valor">' + brl(i.total) + '</div>';
     h += '<p class="nota">Pagamento: <b>' + (String(i.status).indexOf('local') >= 0 ? 'na retirada' : String(i.status).indexOf('aprovado') === 0 ? 'confirmado' : esc(i.status)) + '</b>. O pedido original e o valor pago não mudam.</p></div>';
@@ -374,7 +425,7 @@ var CFG = {
     if (i.complementos.length) {
       h += '<div class="card"><div class="sec">Complementos</div><ul class="resumo">';
       i.complementos.forEach(function(c){
-        var o = (c.itens || []).map(function(x){ return x.qtd + '× ' + esc(x.nome); }).concat((c.adicionais || []).map(function(x){ return '+ ' + x.qtd + '× ' + esc(x.nome) + ' (' + esc(x.em) + ')'; }));
+        var o = porRet(c.itens || [], function(x){ return x.qtd + '× ' + esc(x.nome); }).concat((c.adicionais || []).map(function(x){ return '+ ' + x.qtd + '× ' + esc(x.nome) + ' (' + esc(x.em) + ')'; }));
         h += '<li><b>' + esc(c.ref) + '</b> · ' + brl(c.total) + ' · ' + (String(c.status).indexOf('aprovado') === 0 ? 'pago' : esc(c.status)) + (o.length ? '<br><small>' + o.join('<br>') + '</small>' : '') + '</li>';
       });
       h += '</ul></div>';
@@ -523,6 +574,27 @@ var CFG = {
   function htmlFinal(){
     var h = '<div class="topo"><h2>Quase lá</h2></div><button class="link" data-a="voltar" style="padding-left:0">← Voltar</button>';
     h += '<div class="card"><div class="sec">Seu pedido</div><ul class="resumo">' + resumoItens() + '</ul><div class="valor">' + brl(totalPedido()) + '</div></div>';
+    if (novoModo()) {
+      if (dados.horario !== null && !horOk(dados.horario)) dados.horario = null;
+      var np = contar('poke');
+      if (pedeHorario()) {
+        h += '<div class="card" id="g-hor"><span class="campo" style="display:block;font-weight:700;margin-bottom:6px">Quando você quer retirar o poke? <small style="color:var(--err)">(obrigatório)</small></span>' +
+          horarios.map(function(x, i){
+            var n = typeof x.restam === 'number', ok = horOk(i);
+            var nota = !n ? '' : x.restam === 0 ? ' · esgotado' : x.restam < np ? ' · restam ' + x.restam + ' (seu pedido tem ' + np + ' pokes)' : ' · restam ' + x.restam;
+            return '<label class="ciente" style="margin-top:8px"><input type="radio" name="hor" value="' + i + '"' + (ok ? '' : ' disabled') + (dados.horario === i ? ' checked' : '') + '><span>' + esc(x.texto) + (nota ? '<small style="color:var(--muted)">' + nota + '</small>' : '') + '</span></label>';
+          }).join('') + '<div class="erro-campo" id="e-hor">Escolha o horário da retirada do poke.</div></div>';
+      }
+      if (perguntaPudim()) {
+        var hh = horarios[dados.horario];
+        h += '<div class="card" id="g-dpu"><span class="campo" style="display:block;font-weight:700;margin-bottom:6px">Quando quer retirar o pudim? <small style="color:var(--err)">(obrigatório)</small></span>' +
+          [['poke', 'Junto com o poke (' + (hh ? esc(hh.texto) : 'escolha o horário do poke') + ')'], ['onigiri', 'Junto com o onigiri (' + esc(retOni || retirada) + ')']].map(function(o){
+            return '<label class="ciente" style="margin-top:8px"><input type="radio" name="dpu" value="' + o[0] + '"' + (dados.diaPudim === o[0] ? ' checked' : '') + '><span>' + o[1] + '</span></label>';
+          }).join('') + '<div class="erro-campo" id="e-dpu">Escolha quando retirar o pudim.</div></div>';
+      }
+      var LR = linhasRetirada();
+      if (LR.length) h += '<div class="card"><div class="sec">Retirada</div><ul class="resumo">' + LR.map(function(x){ return '<li><b>' + esc(x.r) + '</b>: ' + esc(x.t) + '</li>'; }).join('') + '</ul></div>';
+    }
     if (festival) h += '<div class="card" id="g-ret"><span class="campo" style="display:block;font-weight:700;margin-bottom:6px">Quando você vai retirar? <small style="color:var(--err)">(obrigatório)</small></span>' +
       ['manha','tarde'].map(function(k){ return '<label class="ciente" style="margin-top:8px"><input type="radio" name="ret" value="' + k + '"' + (dados.ret === k ? ' checked' : '') + '><span>' + (k === 'manha' ? 'De manhã, antes do almoço · 10h às 12h' : 'À tarde · 13h15 às 18h') + '</span></label>'; }).join('') +
       '<div class="erro-campo" id="e-ret">Escolha o período da retirada.</div></div>';
@@ -552,6 +624,8 @@ var CFG = {
     if ($('obs')) dados.obs = $('obs').value;
     if ($('ciente')) dados.ciente = $('ciente').checked;
     var r = document.querySelector('input[name=ret]:checked'); if (r) dados.ret = r.value;
+    var rh = document.querySelector('input[name=hor]:checked'); if (rh) dados.horario = +rh.value;
+    var rd = document.querySelector('input[name=dpu]:checked'); if (rd) dados.diaPudim = rd.value;
   }
   function dadosOk(){
     var n = nomeOk(dados.nome), t = foneOk(dados.tel);
@@ -634,6 +708,7 @@ var CFG = {
     Object.keys(on).forEach(function(k){ if (on[k] > 0) units.push({t:'oni', sabor:k, qtd:+on[k]}); });
     extras = {acomp: soPositivos(c.acompanhamentos || {}), sob: soPositivos(c.sobremesas || {})};
     dados.nome = c.nome || dados.nome; dados.tel = c.telefone || dados.tel; dados.obs = c.obs || ''; dados.ciente = false;
+    dados.horario = typeof c.horario === 'number' ? c.horario : null; dados.diaPudim = c.diaPudim || '';
     modo = null; exPokes = {};
     idPedido = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('p' + Date.now() + Math.random().toString(36).slice(2));
     try { sessionStorage.setItem('tanuki_id_pedido', idPedido); } catch(e){}
@@ -744,7 +819,7 @@ var CFG = {
     h += '<button class="btn prim" style="margin-top:10px" data-a="copiar">Copiar código Pix</button>';
     h += '<p class="nota">Assim que o Pix cair, confirmamos o pagamento e registramos o pedido (leva de 1 a 2 minutos). <b>Fique nesta tela.</b></p>';
     // Comprovante opcional: abre o WhatsApp com o texto pronto; o cliente anexa o print do Pix.
-    h += '<p class="nota">Se quiser, mande o comprovante para a gente:</p>' + linkWhats('Enviar comprovante pelo WhatsApp', 'Olá! Segue o comprovante do Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + '.');
+    h += '<p class="nota">Se quiser, mande o comprovante para a gente:</p>' + linkWhats('Enviar comprovante pelo WhatsApp', 'Olá! Segue o comprovante do Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + '.' + (retiradaTxt() ? ' Retirada: ' + retiradaTxt() + '.' : ''));
     // Só aparece depois de 10 minutos sem confirmar (aguardarPagamento mostra #ajudaPix).
     h += '<div id="ajudaPix" hidden><p class="nota">Se passar de 10 minutos e não confirmar, fale com a gente:</p>' + linkWhats('Paguei e não confirmou', 'Olá! Paguei o Pix do pedido ' + (ref ? ref + ' ' : '') + 'de ' + dados.nome.trim() + ', valor ' + brl(total) + ', e ainda não confirmou.') + '</div>';
     return h + '</div>';
@@ -839,6 +914,10 @@ var CFG = {
         acompanhamentos: contar('oni') ? soPositivos(extras.acomp) : {},
         sobremesas: soPositivos(extras.sob)
       };
+      if (novoModo()) {
+        if (pedeHorario()) corpo.horario = dados.horario;
+        if (perguntaPudim()) corpo.diaPudim = dados.diaPudim;
+      }
       if (substituiRef && !modo) corpo.substitui = substituiRef;
       if (modo) corpo.extrasPokes = Object.keys(exPokes).map(function(n){ return {poke: +n, adicionais: soPositivos(exPokes[n])}; }).filter(function(x){ return Object.keys(x.adicionais).length; });
       if (modo) { delete corpo.nome; corpo.acao = 'complemento'; corpo.ref = modo.ref; corpo.telefone = modo.tel; corpo.id = idComp; corpo.origem = 'complemento'; }
@@ -865,6 +944,13 @@ var CFG = {
             units.forEach(function(x){ if (x.t !== 'oni') return; var lim = typeof RESTAM[x.sabor] === 'number' ? RESTAM[x.sabor] - (gasto[x.sabor] || 0) : Infinity; x.qtd = Math.max(0, Math.min(x.qtd, lim)); gasto[x.sabor] = (gasto[x.sabor] || 0) + x.qtd; });
             units = units.filter(function(x){ return x.t !== 'oni' || x.qtd > 0; });
             ir(contar('oni') ? 'final' : (modo ? 'comp' : 'dados'));
+            return;
+          }
+          if (j && j.codigo === 'teto_horario') {
+            enviando = false; ultimoCorpo = null; alert(j.mensagem);
+            if (Array.isArray(j.horarios)) horarios = j.horarios.filter(function(h){ return h && h.texto; });
+            dados.horario = null; topo(); ir('final');
+            setTimeout(function(){ var g = $('g-hor'); if (g) g.scrollIntoView({behavior:'smooth', block:'center'}); }, 50);
             return;
           }
           if (j && j.codigo === 'validacao') { enviando = false; if (b) { b.disabled = false; b.textContent = 'Enviar pedido · ' + brl(totalPedido()); } alert(j.mensagem); return; }
@@ -927,6 +1013,10 @@ var CFG = {
     else if (a === 'prox') { var ps2 = passos(); ir(ps2[ps2.indexOf(tela) + 1] || 'final'); }
     else if (a === 'confirmar') {
       if (festival) { var okr = !!RET[dados.ret]; $('e-ret').style.display = okr ? 'none' : 'block'; if (!okr) { $('g-ret').scrollIntoView({behavior:'smooth', block:'center'}); return; } }
+      if (novoModo()) {
+        if (pedeHorario() && !horOk(dados.horario)) { $('e-hor').style.display = 'block'; $('g-hor').scrollIntoView({behavior:'smooth', block:'center'}); return; }
+        if (perguntaPudim() && !dados.diaPudim) { $('e-dpu').style.display = 'block'; $('g-dpu').scrollIntoView({behavior:'smooth', block:'center'}); return; }
+      }
       var okc = dados.ciente; $('e-ciente').style.display = okc ? 'none' : 'block';
       if (!okc) { $('g-ciente').scrollIntoView({behavior:'smooth', block:'center'}); return; }
       enviarPedido();
@@ -964,6 +1054,11 @@ var CFG = {
     else if (a === 'reenviar') { b.id = 'btnReenviar'; enviarPedido(true); }
     else if (a === 'copiar') { copiarPix(b); }
     else if (a === 'novopedido') { exPokes = {}; try { sessionStorage.removeItem('tanuki_ref_pend'); } catch(e){} pararEspera(); carregar(); }
+  });
+
+  // escolher horário/dia do pudim redesenha a tela (o pudim depende do horário; o bloco do horário depende do dia do pudim)
+  document.addEventListener('change', function(ev){
+    if (tela === 'final' && (ev.target.name === 'hor' || ev.target.name === 'dpu')) { lerDados(); render(); }
   });
 
   document.addEventListener('input', function(ev){
