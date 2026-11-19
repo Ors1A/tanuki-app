@@ -375,7 +375,7 @@ function linhasEtiqueta(linhas) {
     const prod = String(l[1] || '').trim(), i = prod.indexOf(' - ');
     if (i < 0) return null;
     const m = /^(.*?)(?:\s+x(\d+))?$/.exec(prod.slice(i + 3).trim());
-    return { nome: nomeBonito(String(l[0] || '').trim()), tipo: prod.slice(0, i).trim(), sabor: m[1], q: m[2] ? +m[2] : 1, adic: String(l[2] || '').trim() };
+    return { nome: nomeBonito(String(l[0] || '').trim()), tipo: prod.slice(0, i).trim(), sabor: m[1], q: m[2] ? +m[2] : 1, adic: String(l[2] || '').trim(), ret: String(l[4] || '').trim() };
   }).filter(Boolean);
 }
 
@@ -384,13 +384,20 @@ function rodadaAtual() {
   return lista[rodadaSel] || lista[0];
 }
 
-function htmlComandas(ls, retirada) {
+// Uma comanda por cliente e por retirada (5ª coluna da aba; leva de dois dias). Sem a coluna, vale a retirada digitada.
+function porPessoa(ls, retirada) {
   const pessoas = [];
   ls.forEach(l => {
-    let p = pessoas.find(x => x.nome.toLowerCase() === l.nome.toLowerCase());
-    if (!p) pessoas.push(p = { nome: l.nome, itens: [] });
+    const ret = l.ret || retirada;
+    let p = pessoas.find(x => x.nome.toLowerCase() === l.nome.toLowerCase() && x.ret === ret);
+    if (!p) pessoas.push(p = { nome: l.nome, ret: ret, itens: [] });
     p.itens.push(l);
   });
+  return pessoas;
+}
+
+function htmlComandas(ls, retirada) {
+  const pessoas = porPessoa(ls, retirada);
   const tipos = ['Poke', 'Onigiri', 'Acompanhamento', 'Sobremesa'];
   return '<div class="pgrade">' + pessoas.map(p => {
     const pokes = p.itens.filter(i => i.tipo === 'Poke');
@@ -403,14 +410,14 @@ function htmlComandas(ls, retirada) {
         return '<li><span><b>' + i.q + 'x</b> ' + esc(i.sabor) + '</span></li>';
       }).join('') + '</ul>';
     });
-    return '<div class="comanda"><div class="cab"><div class="mk">Tanuki' + (retirada ? ' · Retirada ' + esc(retirada) : '') + '</div><h3>' + esc(p.nome) +
+    return '<div class="comanda"><div class="cab"><div class="mk">Tanuki' + (p.ret ? ' · Retirada ' + esc(p.ret) : '') + '</div><h3>' + esc(p.nome) +
       '</h3></div>' + html + '<div class="rod">Conferir antes de fechar o saco</div></div>';
   }).join('') + '</div>';
 }
 
 function htmlTampas(ls) {
   return '<div class="pgrade">' + ls.filter(l => l.tipo === 'Poke').map(l =>
-    '<div class="tampa"><div class="n">' + esc(l.nome) + '</div><div class="p">Poke - ' + esc(l.sabor) + '</div><div class="a">' + (l.adic ? esc(l.adic) : '&nbsp;') + '</div></div>').join('') + '</div>';
+    '<div class="tampa"><div class="n">' + esc(l.nome) + '</div>' + (l.ret ? '<div style="font-size:9px">Retirada ' + esc(l.ret) + '</div>' : '') + '<div class="p">Poke - ' + esc(l.sabor) + '</div><div class="a">' + (l.adic ? esc(l.adic) : '&nbsp;') + '</div></div>').join('') + '</div>';
 }
 
 // Avisos de alergênicos e validade: texto do modelo aprovado de 10/10, não alterar sem pedido do usuário.
@@ -555,24 +562,19 @@ function pdfComanda(doc, p, retirada, x, y) {
 }
 
 function pdfComandas(doc, ls, retirada) {
-  const pessoas = [];
-  ls.forEach(l => {
-    let p = pessoas.find(x => x.nome.toLowerCase() === l.nome.toLowerCase());
-    if (!p) pessoas.push(p = { nome: l.nome, itens: [] });
-    p.itens.push(l);
-  });
-  pessoas.forEach((p, i) => { const c = pdfCelula(doc, i, 9, 90); pdfComanda(doc, p, retirada, c.x, c.y); });
+  porPessoa(ls, retirada).forEach((p, i) => { const c = pdfCelula(doc, i, 9, 90); pdfComanda(doc, p, p.ret, c.x, c.y); });
 }
 
 function pdfTampas(doc, ls) {
   const cards = ls.filter(l => l.tipo === 'Poke');
   // uma fonte só para todas as tampas: a maior que cabe no adicional mais comprido (mín. 6 pt)
   let fs = 12;
+  const altAdic = cards.some(l => l.ret) ? 10 : 14; // com retirada, ela ocupa a última linha da tampa
   cards.forEach(l => {
     if (!l.adic) return;
     doc.setFont('helvetica', 'normal');
     let f = 12; doc.setFontSize(f);
-    while (f > 6 && doc.splitTextToSize(l.adic, PDF.larg - 6).length * f * 0.4234 > 14) { f -= 0.5; doc.setFontSize(f); }
+    while (f > 6 && doc.splitTextToSize(l.adic, PDF.larg - 6).length * f * 0.4234 > altAdic) { f -= 0.5; doc.setFontSize(f); }
     fs = Math.min(fs, f);
   });
   cards.forEach((l, i) => {
@@ -585,6 +587,10 @@ function pdfTampas(doc, ls) {
     if (l.adic) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(fs);
       doc.splitTextToSize(l.adic, PDF.larg - 6).forEach((ln, j) => doc.text(ln, cx, c.y + 19 + j * fs * 0.4234, { align: 'center' }));
+    }
+    if (l.ret) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+      doc.text('Retirada ' + l.ret, cx, c.y + 31.5, { align: 'center' });
     }
   });
 }
