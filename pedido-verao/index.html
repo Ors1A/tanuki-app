@@ -43,6 +43,9 @@ input:focus,textarea:focus{border-color:var(--accent)}
 .chip[aria-pressed=true] .dot{border-color:var(--accent);background:var(--accent)}
 .chip small{display:block;font-weight:600;color:var(--muted);font-size:13px}
 .chip .t{flex:1}
+.chip.parceria{flex-basis:100%;flex-wrap:wrap}
+.chip.parceria:not([aria-pressed=true]){background:#F7F6F1;border-color:#8E9A7A}
+.chip .logo-parceria{flex-basis:100%;height:46px;background:url(paola.jpg) no-repeat center -160px/296px 296px;mix-blend-mode:multiply;margin:-2px 0 2px}
 .sec{font-weight:700;font-size:15px;margin:16px 0 8px}
 .sec:first-child{margin-top:0}
 .sec small{font-weight:600;color:var(--muted)}
@@ -134,9 +137,9 @@ var CFG = {
     {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu e gergelim', peso:'~435 g'},
     {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha da casa', peso:'~425 g'},
     {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com ervilhas', peso:'~470 g'},
-    {k:'paola', nome:'Paola de Bortoli', desc:'Criado com a nutricionista Paola de Bortoli: salmão cru, mix de folhas, ervilha, cenoura, manga e castanha de caju', peso:'~315 g'}
+    {k:'paola', nome:'Salmão - ~400kcal', desc:'Salmão cru, mix de folhas, ervilha, cenoura, manga e castanha de caju', peso:'~315 g', logo:'Paola de Bortoli, nutricionista'}
   ],
-  BASE_POKE: 'Todos levam arroz de sushi, sunomono (pepino), Gari - Gengibre em Conserva, furikake e maionese japonesa. Salmão, Apimentado e Vegetariano: 150 g de arroz, 120 g de proteína, cebolinha e gergelim. Paola de Bortoli: 75 g de arroz, 90 g de salmão e 50 g de folhas. Molhos vão em pote separado. Pesos aproximados, sem o pote.',
+  BASE_POKE: 'Todos levam arroz de sushi, sunomono (pepino), Gari - Gengibre em Conserva, furikake e maionese japonesa. Salmão, Apimentado e Vegetariano: 150 g de arroz, 120 g de proteína, cebolinha e gergelim. Salmão ~400 kcal (criado com a nutricionista Paola de Bortoli): 75 g de arroz, 90 g de salmão e 50 g de folhas. Molhos vão em pote separado. Pesos aproximados, sem o pote.',
   // max: quantas porções por poke (1 = marca/desmarca). prot: aparece em "Proteínas extras".
   ADICIONAIS: [
     {k:'salmao', nome:'Salmão marinado', por:'50 g', p:10.9, max:3, prot:true},
@@ -322,7 +325,7 @@ var CFG = {
     }
     CFG.SABORES = aplica(CFG.SABORES, CFG.NOMES.SABORES);
     // aviso só aparece quando o sabor está ativo, para não revelar antes da hora
-    if (CFG.SABORES.some(function(s){ return s.k === 'paola'; })) CFG.AVISOS.splice(1, 0, 'Poke Paola de Bortoli: contém castanha de caju.');
+    if (CFG.SABORES.some(function(s){ return s.k === 'paola'; })) CFG.AVISOS.splice(1, 0, 'Poke Salmão ~400 kcal (Paola de Bortoli): contém castanha de caju.');
     CFG.ONIGIRIS = aplica(CFG.ONIGIRIS, CFG.NOMES.ONIGIRIS);
     CFG.ACOMP = aplica(CFG.ACOMP, CFG.NOMES.ACOMP);
     CFG.SOBREMESAS = aplica(CFG.SOBREMESAS, CFG.NOMES.SOBREMESAS);
@@ -493,7 +496,7 @@ var CFG = {
     if (u.t === 'poke' && !parteB) {
       h += '<p class="sub">' + textoPreco(CFG.SABORES, 'Poke') + ' · molhos e vinagrete vão em pote separado.</p><div class="card">';
       h += '<div class="sec" id="s-sabor">Sabor</div><div class="opcoes">';
-      CFG.SABORES.forEach(function(s){ h += '<button class="chip" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '"><span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + ' · bowl de ' + s.peso + '</small></span></button>'; });
+      CFG.SABORES.forEach(function(s){ h += '<button class="chip' + (s.logo ? ' parceria' : '') + '" aria-pressed="' + (u.sabor === s.k) + '" data-a="sabor" data-k="' + s.k + '">' + (s.logo ? '<span class="logo-parceria" role="img" aria-label="' + s.logo + '"></span>' : '') + '<span class="dot"></span><span class="t">' + s.nome + '<small>' + s.desc + ' · bowl de ' + s.peso + '</small></span></button>'; });
       h += '</div><div class="erro-campo" id="e-sabor">Escolha o sabor.</div>';
       h += '<div class="base">' + esc(CFG.BASE_POKE) + '</div>';
       h += '<div class="sec">Vinagrete de cebola roxa <small>(pote separado, sem custo)</small></div><div class="opcoes">';
