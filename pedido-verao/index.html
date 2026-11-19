@@ -137,7 +137,7 @@ var CFG = {
     {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu e gergelim', peso:'~435 g'},
     {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha da casa', peso:'~425 g'},
     {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com ervilhas', peso:'~470 g'},
-    {k:'paola', nome:'Salmão - ~400kcal', desc:'Salmão cru, mix de folhas, ervilha, cenoura, manga e castanha de caju', peso:'~315 g', logo:'Paola de Bortoli, nutricionista'}
+    {k:'paola', nome:'Poke Salmão Paola de Bortoli ~380kcal', desc:'Salmão cru, mix de folhas, ervilha, cenoura, manga e castanha de caju. Esse poke foi pensado para não contar como refeição livre! Uma opção pra sair da rotina sem peso na consciência', peso:'~315 g', logo:'Paola de Bortoli, nutricionista', semAd:true}
   ],
   BASE_POKE: 'Todos levam arroz de sushi, sunomono (pepino), Gari - Gengibre em Conserva, furikake e maionese japonesa. Salmão, Apimentado e Vegetariano: 150 g de arroz, 120 g de proteína, cebolinha e gergelim. Molhos vão em pote separado. Pesos aproximados, sem o pote.',
   // max: quantas porções por poke (1 = marca/desmarca). prot: aparece em "Proteínas extras".
@@ -276,6 +276,7 @@ var CFG = {
     var ps = lista.map(function(x){ return x.p; }), min = Math.min.apply(null, ps), max = Math.max.apply(null, ps);
     return rotulo + (min === max ? ' ' : ' a partir de ') + brl(min);
   }
+  function semAd(k){ return CFG.SABORES.some(function(x){ return x.k === k && x.semAd; }); }
   function nomeSabor(lista, k){ var r = lista.filter(function(x){ return x.k === k; })[0]; return r ? r.nome : ''; }
   var RESTAM = {};         // onigiri: chave do sabor -> quantas unidades ainda podem ser reservadas (sem chave = sem limite)
   function livreOni(k, uIdx){
@@ -325,7 +326,7 @@ var CFG = {
     }
     CFG.SABORES = aplica(CFG.SABORES, CFG.NOMES.SABORES);
     // aviso só aparece quando o sabor está ativo, para não revelar antes da hora
-    if (CFG.SABORES.some(function(s){ return s.k === 'paola'; })) CFG.AVISOS.splice(1, 0, 'Poke Salmão ~400 kcal (Paola de Bortoli): contém castanha de caju.');
+    if (CFG.SABORES.some(function(s){ return s.k === 'paola'; })) CFG.AVISOS.splice(1, 0, 'Poke Salmão Paola de Bortoli ~380 kcal: contém castanha de caju.');
     CFG.ONIGIRIS = aplica(CFG.ONIGIRIS, CFG.NOMES.ONIGIRIS);
     CFG.ACOMP = aplica(CFG.ACOMP, CFG.NOMES.ACOMP);
     CFG.SOBREMESAS = aplica(CFG.SOBREMESAS, CFG.NOMES.SOBREMESAS);
@@ -424,7 +425,7 @@ var CFG = {
         var ads = (k.adicionais || []).map(function(x){ return qtdTxt(x.qtd) + esc(x.nome); }).join(', ');
         h += '<li><b>Poke ' + k.n + '</b> · ' + esc(String(k.nome).replace(/^Poke /, '')) + ' · ' + (k.vinagrete ? 'com vinagrete' : 'sem vinagrete') + (ads ? '<br><small>Adicionais: ' + ads + '</small>' : '') +
           (k.vinagrete || !i.prazo ? '' : '<br><button class="btn sec2" style="margin-top:6px" data-a="vinadd" data-n="' + id + '">Adicionar vinagrete (grátis)</button>') +
-          (i.podeComplementar ? '<br><button class="btn sec2" style="margin-top:6px" data-a="addex" data-n="' + id + '">' + (exPokes[id] && Object.keys(exPokes[id]).length ? 'Editar adicionais novos' : 'Incluir novos adicionais (pagos à parte)') + '</button>' : '') + '</li>';
+          (i.podeComplementar && k.nome !== CFG.NOMES.SABORES.paola ? '<br><button class="btn sec2" style="margin-top:6px" data-a="addex" data-n="' + id + '">' + (exPokes[id] && Object.keys(exPokes[id]).length ? 'Editar adicionais novos' : 'Incluir novos adicionais (pagos à parte)') + '</button>' : '') + '</li>';
       });
       h += '</ul>' + (temExtras() ? '<div class="acoes"><button class="btn prim" data-a="exok">Pagar adicionais · ' + brl(totalExtras()) + '</button></div>' : '') + '</div>';
     }
@@ -505,7 +506,10 @@ var CFG = {
       h += '<div class="acoes"><button class="btn prim" data-a="avancar">Escolher adicionais</button></div>';
       return h + barra();
     }
-    if (u.t === 'poke') {
+    if (u.t === 'poke' && semAd(u.sabor)) {
+      u.ad = {};
+      h += '<p class="sub">' + esc(nomeSabor(CFG.SABORES, u.sabor)) + (u.vin ? ' · com vinagrete' : ' · sem vinagrete') + '</p><div class="card"><p class="nota">Este poke vai como a nutricionista montou: não aceita adicionais.</p></div>';
+    } else if (u.t === 'poke') {
       h += '<p class="sub">' + esc(nomeSabor(CFG.SABORES, u.sabor)) + (u.vin ? ' · com vinagrete' : ' · sem vinagrete') + ' · adicionais são opcionais.</p><div class="card">';
       var sub = function(a){ return a.por + ' · +' + brl(a.p); };
       h += '<div class="sec">Proteínas extras <small>(até 3 de cada)</small></div>';
