@@ -117,7 +117,7 @@ var CFG = {
   // Item que não estiver ativo na planilha some da página.
   MAX_POKES: 5, MAX_ONI_PAGINAS: 3, MAX_ONIGIRI: 10,
   NOMES: {
-    SABORES: { salmao: 'Poke Salmao', apimentado: 'Poke Apimentado (atum)', vegetariano: 'Poke Vegetariano' },
+    SABORES: { salmao: 'Poke Salmao', apimentado: 'Poke Apimentado (atum)', vegetariano: 'Poke Vegetariano', paola: 'Poke Paola de Bortoli' },
     ONIGIRIS: { salmao: 'Onigiri Salmao', tuna: 'Onigiri Tuna Mayo', shimeji: 'Onigiri Shimeji', caponata: 'Onigiri Caponata', teriyaki: 'Onigiri Frango Teriyaki' },
     ACOMP: { sunomono: 'Sunomono', repolho: 'Mix de Repolho com Goma Dare' },
     SOBREMESAS: { pudim: 'Pudim de Matcha', mousse: 'Mousse de Chocolate Branco e Matcha' },
@@ -133,9 +133,10 @@ var CFG = {
   SABORES: [
     {k:'salmao', nome:'Salmão', desc:'Salmão cru marinado no shoyu e gergelim', peso:'~435 g'},
     {k:'apimentado', nome:'Apimentado', desc:'Atum na maionese japonesa com sriracha da casa', peso:'~425 g'},
-    {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com ervilhas', peso:'~470 g'}
+    {k:'vegetariano', nome:'Vegetariano', desc:'Tofu e shimeji marinados, com ervilhas', peso:'~470 g'},
+    {k:'paola', nome:'Paola de Bortoli', desc:'Criado com a nutricionista Paola de Bortoli: salmão cru, mix de folhas, ervilha, cenoura, manga e castanha de caju', peso:'~315 g'}
   ],
-  BASE_POKE: 'Todos levam arroz de sushi 150 g, 120 g de proteína, sunomono (pepino), Gari - Gengibre em Conserva, cebolinha, gergelim, furikake e maionese japonesa. Molhos vão em pote separado. Pesos aproximados, sem o pote.',
+  BASE_POKE: 'Todos levam arroz de sushi, sunomono (pepino), Gari - Gengibre em Conserva, furikake e maionese japonesa. Salmão, Apimentado e Vegetariano: 150 g de arroz, 120 g de proteína, cebolinha e gergelim. Paola de Bortoli: 75 g de arroz, 90 g de salmão e 50 g de folhas. Molhos vão em pote separado. Pesos aproximados, sem o pote.',
   // max: quantas porções por poke (1 = marca/desmarca). prot: aparece em "Proteínas extras".
   ADICIONAIS: [
     {k:'salmao', nome:'Salmão marinado', por:'50 g', p:10.9, max:3, prot:true},
@@ -320,6 +321,8 @@ var CFG = {
                   .map(function(x){ x.p = preco[nomes[x.k]]; return x; });
     }
     CFG.SABORES = aplica(CFG.SABORES, CFG.NOMES.SABORES);
+    // aviso só aparece quando o sabor está ativo, para não revelar antes da hora
+    if (CFG.SABORES.some(function(s){ return s.k === 'paola'; })) CFG.AVISOS.splice(1, 0, 'Poke Paola de Bortoli: contém castanha de caju.');
     CFG.ONIGIRIS = aplica(CFG.ONIGIRIS, CFG.NOMES.ONIGIRIS);
     CFG.ACOMP = aplica(CFG.ACOMP, CFG.NOMES.ACOMP);
     CFG.SOBREMESAS = aplica(CFG.SOBREMESAS, CFG.NOMES.SOBREMESAS);
